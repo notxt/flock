@@ -124,20 +124,20 @@ import { loadShaders, createPipelines } from './modules/shaders.js';
 - Handles render loop and UI events
 - Compiled to dist/js/main.js
 
-#### src/modules/webgpu.ts
+#### src/module/webgpu.ts
 ```typescript
 export async function initializeWebGPU(canvas: HTMLCanvasElement): Promise<WebGPUResources>;
 export function checkWebGPUSupport(): boolean;
 ```
 
-#### src/modules/buffers.ts
+#### src/module/buffers.ts
 ```typescript
 export function createBufferSet(device: GPUDevice, params: SimulationParams): BufferSet;
 export function updateUniforms(device: GPUDevice, buffer: GPUBuffer, params: SimulationParams): void;
 export function initializeAgents(params: SimulationParams): Float32Array;
 ```
 
-#### src/modules/shaders.ts
+#### src/module/shaders.ts
 ```typescript
 export async function loadShader(path: string): Promise<string>;
 export function createPipelines(device: GPUDevice, shaderCode: ShaderCode): PipelineSet;
@@ -198,28 +198,28 @@ const shaderCode = {
 Complete
 
 ### Phase 2: WebGPU Foundation
-1. Implement src/modules/webgpu.ts with Chrome-only browser checking
+1. Implement src/module/webgpu.ts with Chrome-only browser checking
 2. Create type-safe WebGPU initialization using @webgpu/types
 3. Set up canvas context and device with proper typing
 4. Add comprehensive error handling with TypeScript safety
 5. Test WebGPU device creation from dist/
 
 ### Phase 3: Shader Development
-1. Create src/shaders/ with compute.wgsl, vertex.wgsl, fragment.wgsl
-2. Implement fetch-based shader loading in src/modules/shaders.ts
-3. Ensure WGSL files are copied to dist/shaders/ during build
+1. Create dist/shader/ with compute.wgsl, vertex.wgsl, fragment.wgsl
+2. Implement fetch-based shader loading in src/module/shaders.ts
+3. Ensure WGSL files are copied to dist/shader/ during build
 4. Add shader compilation error handling with types
 5. Test basic point rendering
 
 ### Phase 4: Buffer Management
-1. Implement src/modules/buffers.ts with strict TypeScript buffer creation
+1. Implement src/module/buffers.ts with strict TypeScript buffer creation
 2. Create double-buffered agent storage with proper typing
 3. Add uniform buffer for parameters
 4. Implement spatial grid buffers
 5. Add type-safe buffer utility functions
 
 ### Phase 5: Flocking Logic
-1. Add brute-force neighbor finding to src/shaders/compute.wgsl
+1. Add brute-force neighbor finding to dist/shader/compute.wgsl
 2. Implement three flocking forces with proper vector math
 3. Add velocity limiting and position updates
 4. Test flocking behavior with small agent count
