@@ -1,0 +1,20 @@
+{
+  "description": "Flocking simulation with WebGPU",
+  "module": "module",
+  "name": "flock",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server.ts",
+    "build": "tsc -p client/tsconfig.json",
+    "watch": "tsc -p client/tsconfig.json --watch",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.1",
+    "@tsconfig/strictest": "^2.0.5",
+    "@types/node": "^24.0.15",
+    "@webgpu/types": "^0.1.64",
+    "typescript": "^5.8.3"
+  }
+}
