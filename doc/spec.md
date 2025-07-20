@@ -1,42 +1,3 @@
-### Dependencies
-```json
-{
-  "devDependencies": {
-    "@webgpu/types": "^0.1.40",
-    "typescript": "^5.0.0"
-  },
-  "scripts": {
-    "dev": "tsc --watch",
-    "build": "tsc && npm run copy-shaders",
-    "copy-shaders": "cp -r src/shaders dist/"
-  }
-}
-```
-
-### tsconfig.json
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "exactOptionalPropertyTypes": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "allowUnusedLabels": false,
-    "allowUnreachableCode": false,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "declaration": false,
-    "sourceMap": false,
-    "types": ["@webgpu/types"]
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "src/**/*.wgsl"]
-}
 ```# WebGPU Flocking Simulation - Implementation Specification
 
 ## Overview
@@ -75,9 +36,9 @@ params = {
 
 ## Architecture
 
-### 1. TypeScript Interfaces
+### 1. TypeScript Types
 ```typescript
-interface SimulationParams {
+type SimulationParams {
   readonly numAgents: number;
   readonly separationStrength: number;
   readonly alignmentStrength: number;
@@ -89,25 +50,25 @@ interface SimulationParams {
   readonly deltaTime: number;
 }
 
-interface Agent {
+type Agent {
   readonly position: readonly [number, number];
   readonly velocity: readonly [number, number];
 }
 
-interface WebGPUResources {
+type WebGPUResources {
   readonly device: GPUDevice;
   readonly context: GPUCanvasContext;
   readonly format: GPUTextureFormat;
 }
 
-interface BufferSet {
+type BufferSet {
   readonly agentBuffers: readonly [GPUBuffer, GPUBuffer];
   readonly uniformBuffer: GPUBuffer;
   readonly gridBuffer: GPUBuffer;
   readonly gridIndicesBuffer: GPUBuffer;
 }
 
-interface PipelineSet {
+type PipelineSet {
   readonly computePipeline: GPUComputePipeline;
   readonly renderPipeline: GPURenderPipeline;
   readonly bindGroups: readonly [GPUBindGroup, GPUBindGroup];
@@ -118,7 +79,7 @@ interface PipelineSet {
 
 #### index.html
 ```html
-<script type="module" src="dist/main.js"></script>
+<script type="module" src="js/main.js"></script>
 ```
 
 #### src/main.ts
@@ -161,7 +122,7 @@ import { loadShaders, createPipelines } from './modules/shaders.js';
 - Application entry point using TypeScript modules
 - Coordinates all systems with strict typing
 - Handles render loop and UI events
-- Compiled to dist/main.js
+- Compiled to dist/js/main.js
 
 #### src/modules/webgpu.ts
 ```typescript
@@ -184,11 +145,11 @@ export function createPipelines(device: GPUDevice, shaderCode: ShaderCode): Pipe
 
 ### 6. Shader Loading Strategy
 ```typescript
-// Load shaders at runtime using fetch from dist/shaders/
+// Load shaders at runtime using fetch from dist/shader/
 const shaderCode = {
-  compute: await loadShader('./shaders/compute.wgsl'),
-  vertex: await loadShader('./shaders/vertex.wgsl'),
-  fragment: await loadShader('./shaders/fragment.wgsl')
+  compute: await loadShader('./shader/compute.wgsl'),
+  vertex: await loadShader('./shader/vertex.wgsl'),
+  fragment: await loadShader('./shader/fragment.wgsl')
 };
 ```
 
@@ -234,11 +195,7 @@ const shaderCode = {
 ## Implementation Steps
 
 ### Phase 1: Project Setup
-1. Initialize minimal package.json with TypeScript and @webgpu/types only
-2. Configure tsconfig.json with strict settings for ES2022 output to dist/
-3. Create src/ directory structure with TypeScript source files
-4. Set up build script to compile TS and copy WGSL files to dist/
-5. Test TypeScript compilation pipeline
+Complete
 
 ### Phase 2: WebGPU Foundation
 1. Implement src/modules/webgpu.ts with Chrome-only browser checking
@@ -305,36 +262,6 @@ const shaderCode = {
 - Proper buffer synchronization
 - No read/write conflicts
 - Grid system working correctly
-
-## File Structure
-```
-├── src/
-│   ├── main.ts             // TypeScript main application
-│   ├── modules/
-│   │   ├── webgpu.ts      // WebGPU initialization utilities
-│   │   ├── buffers.ts     // Buffer creation and management
-│   │   ├── shaders.ts     // Shader loading and compilation
-│   │   └── types.ts       // TypeScript interfaces and types
-│   └── shaders/
-│       ├── compute.wgsl   // Flocking compute shader
-│       ├── vertex.wgsl    // Vertex shader for rendering
-│       └── fragment.wgsl  // Fragment shader for coloring
-├── dist/                   // TypeScript compilation output
-│   ├── main.js
-│   ├── modules/
-│   │   ├── webgpu.js
-│   │   ├── buffers.js
-│   │   ├── shaders.js
-│   │   └── types.js
-│   └── shaders/           // Copy of WGSL files for runtime loading
-│       ├── compute.wgsl
-│       ├── vertex.wgsl
-│       └── fragment.wgsl
-├── index.html              // Main HTML entry point
-├── style.css               // All styling and layout
-├── package.json            // Minimal dependencies
-└── tsconfig.json           // TypeScript configuration
-```
 
 ## Minimal Dependencies Approach
 - **TypeScript only**: Essential for type safety with WebGPU APIs
