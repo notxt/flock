@@ -117,18 +117,22 @@ async function main(): Promise<void> {
   const bufferSet = createBufferSet(webgpuResult.device, simulationParams);
   
   // Create uniform buffer for render pipeline (view projection matrix)
-  const renderUniformData = new Float32Array([
-    // viewProjection matrix (identity for now)
-    1, 0, 0, 0,
-    0, 1, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 1,
-    // worldSize
-    canvas.width, canvas.height,
-  ]);
+  // Must be at least 80 bytes to match WGSL Uniforms struct with padding
+  const renderUniformData = new Float32Array(20); // 80 bytes total
+  // viewProjection matrix (identity for now)
+  renderUniformData.set([
+    1, 0, 0, 0,  // row 0
+    0, 1, 0, 0,  // row 1
+    0, 0, 1, 0,  // row 2
+    0, 0, 0, 1,  // row 3
+  ], 0);
+  // worldSize at offset 16 (64 bytes / 4 = 16 floats)
+  renderUniformData[16] = canvas.width;
+  renderUniformData[17] = canvas.height;
+  // Remaining elements are zero-padded
   
   const renderUniformBuffer = webgpuResult.device.createBuffer({
-    size: renderUniformData.byteLength,
+    size: renderUniformData.byteLength, // 80 bytes
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
   webgpuResult.device.queue.writeBuffer(renderUniformBuffer, 0, renderUniformData);
