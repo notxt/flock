@@ -92,8 +92,8 @@ export function createBufferSet(device: GPUDevice, params: SimulationParams): Bu
   device.queue.writeBuffer(agentBuffer1, 0, initialAgentData);
   device.queue.writeBuffer(agentBuffer2, 0, initialAgentData);
   
-  // Initialize uniform buffer
-  updateUniforms(device, uniformBuffer, params, 1.0 / 60.0);
+  // Initialize uniform buffer with deltaTime = 1.0 (equivalent to 60fps baseline)
+  updateUniforms(device, uniformBuffer, params, 1.0);
   
   // Initialize grid buffers with empty markers
   const cellCount = gridConfig.gridWidth * gridConfig.gridHeight;

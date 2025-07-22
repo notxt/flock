@@ -198,10 +198,14 @@ async function main(): Promise<void> {
     const resources = webgpuResult as WebGPUResources;
     
     function frame(currentTime: number): void {
-      const deltaTime = (currentTime - lastTime) * 0.001; // Convert to seconds
+      const deltaTimeMs = currentTime - lastTime;
       lastTime = currentTime;
       
-      // Update uniform buffer with current deltaTime
+      // Scale deltaTime to maintain reasonable movement speed while being frame-rate independent
+      // Target 60fps (16.67ms) as baseline, so at 60fps deltaTime = 1.0
+      const deltaTime = deltaTimeMs / 16.67;
+      
+      // Update uniform buffer with scaled deltaTime
       updateUniforms(resources.device, bufferSet.uniformBuffer, simulationParams, deltaTime);
       
       const commandEncoder = resources.device.createCommandEncoder();
