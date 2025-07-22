@@ -32,9 +32,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   var separation = vec2<f32>(0.0, 0.0);
   var alignment = vec2<f32>(0.0, 0.0);
   var cohesion = vec2<f32>(0.0, 0.0);
-  var neighborCount: u32 = 0u;
+  var separationCount: u32 = 0u;
+  var alignmentCount: u32 = 0u;
+  var cohesionCount: u32 = 0u;
   
-  // Check all other agents using single neighborRadius
+  // Check all other agents using different radii for each behavior
   for (var i: u32 = 0u; i < params.agentCount; i = i + 1u) {
     if (i == idx) {
       continue;
@@ -43,50 +45,47 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let other = agentsIn[i];
     let diff = agent.position - other.position;
     let distSq = dot(diff, diff);
-    let neighborRadiusSq = params.neighborRadius * params.neighborRadius;
     
-    // Only process agents within neighbor radius
-    if (distSq < neighborRadiusSq && distSq > 0.0) {
+    // Separation - closest interactions, avoid crowding
+    if (distSq < params.separationRadius * params.separationRadius && distSq > 0.0) {
       let dist = sqrt(distSq);
-      
-      // Separation: move away from neighbors (stronger when closer)
-      separation = separation + (diff / dist) / dist;
-      
-      // Alignment: match neighbor velocities
+      separation = separation + (diff / dist);
+      separationCount = separationCount + 1u;
+    }
+    
+    // Alignment - medium range, match neighbor velocities
+    if (distSq < params.alignmentRadius * params.alignmentRadius) {
       alignment = alignment + other.velocity;
-      
-      // Cohesion: move toward average neighbor position
+      alignmentCount = alignmentCount + 1u;
+    }
+    
+    // Cohesion - medium range, move toward group center
+    if (distSq < params.cohesionRadius * params.cohesionRadius) {
       cohesion = cohesion + other.position;
-      
-      neighborCount = neighborCount + 1u;
+      cohesionCount = cohesionCount + 1u;
     }
   }
   
   // Calculate forces
   var velocity = agent.velocity;
   
-  if (neighborCount > 0u) {
-    let neighborCountF = f32(neighborCount);
-    
-    // Separation: normalize and apply strength
-    if (length(separation) > 0.0) {
-      separation = normalize(separation) * params.separationForce;
-      velocity = velocity + separation;
-    }
-    
-    // Alignment: average neighbor velocities and apply strength
-    alignment = alignment / neighborCountF;
-    if (length(alignment) > 0.0) {
-      alignment = normalize(alignment) * params.alignmentForce;
-      velocity = velocity + alignment;
-    }
-    
-    // Cohesion: steer toward average neighbor position
-    cohesion = (cohesion / neighborCountF) - agent.position;
-    if (length(cohesion) > 0.0) {
-      cohesion = normalize(cohesion) * params.cohesionForce;
-      velocity = velocity + cohesion;
-    }
+  // Separation: avoid crowding
+  if (separationCount > 0u) {
+    separation = normalize(separation / f32(separationCount)) * params.separationForce;
+    velocity = velocity + separation;
+  }
+  
+  // Alignment: match neighbor velocities
+  if (alignmentCount > 0u) {
+    alignment = normalize(alignment / f32(alignmentCount)) * params.alignmentForce;
+    velocity = velocity + alignment;
+  }
+  
+  // Cohesion: move toward group center
+  if (cohesionCount > 0u) {
+    cohesion = (cohesion / f32(cohesionCount)) - agent.position;
+    cohesion = normalize(cohesion) * params.cohesionForce;
+    velocity = velocity + cohesion;
   }
   
   // Limit speed
