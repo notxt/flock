@@ -26,7 +26,7 @@ type GridConfig = {
 };
 
 const AGENT_SIZE_BYTES = 16; // 4 floats: x, y, vx, vy
-const UNIFORM_SIZE_BYTES = 48; // SimParams struct size
+const UNIFORM_SIZE_BYTES = 56; // SimParams struct size with deltaTime and neighborRadius
 const MAX_AGENTS_PER_CELL = 32;
 const EMPTY_CELL_MARKER = 0xFFFFFFFF;
 
@@ -93,7 +93,7 @@ export function createBufferSet(device: GPUDevice, params: SimulationParams): Bu
   device.queue.writeBuffer(agentBuffer2, 0, initialAgentData);
   
   // Initialize uniform buffer
-  updateUniforms(device, uniformBuffer, params);
+  updateUniforms(device, uniformBuffer, params, 1.0 / 60.0);
   
   // Initialize grid buffers with empty markers
   const cellCount = gridConfig.gridWidth * gridConfig.gridHeight;
@@ -113,7 +113,7 @@ export function createBufferSet(device: GPUDevice, params: SimulationParams): Bu
   };
 }
 
-export function updateUniforms(device: GPUDevice, buffer: GPUBuffer, params: SimulationParams): void {
+export function updateUniforms(device: GPUDevice, buffer: GPUBuffer, params: SimulationParams, deltaTime: number): void {
   const uniformData = new ArrayBuffer(UNIFORM_SIZE_BYTES);
   const view = new DataView(uniformData);
   
@@ -128,9 +128,11 @@ export function updateUniforms(device: GPUDevice, buffer: GPUBuffer, params: Sim
   view.setFloat32(28, params.maxSpeed, true);
   view.setFloat32(32, params.worldSize[0], true);
   view.setFloat32(36, params.worldSize[1], true);
+  view.setFloat32(40, params.neighborRadius, true);
+  view.setFloat32(44, deltaTime, true);
   // Padding to align to 16 bytes
-  view.setFloat32(40, 0, true);
-  view.setFloat32(44, 0, true);
+  view.setFloat32(48, 0, true);
+  view.setFloat32(52, 0, true);
   
   device.queue.writeBuffer(buffer, 0, uniformData);
 }

@@ -6,7 +6,7 @@ type WebGPUResources = {
   readonly format: GPUTextureFormat;
 };
 import { loadShader, createPipelines } from "./module/shaders.js";
-import { createBufferSet, type SimulationParams } from "./module/buffers.js";
+import { createBufferSet, updateUniforms, type SimulationParams } from "./module/buffers.js";
 
 type PipelineSet = {
   readonly compute: GPUComputePipeline;
@@ -191,12 +191,19 @@ async function main(): Promise<void> {
   
   // Start the simulation with render loop
   let currentBuffer = 0;
+  let lastTime = performance.now();
   
   function startSimulation(): void {
     // Type assertion is safe here because we already checked that webgpuResult is not an Error
     const resources = webgpuResult as WebGPUResources;
     
-    function frame(): void {
+    function frame(currentTime: number): void {
+      const deltaTime = (currentTime - lastTime) * 0.001; // Convert to seconds
+      lastTime = currentTime;
+      
+      // Update uniform buffer with current deltaTime
+      updateUniforms(resources.device, bufferSet.uniformBuffer, simulationParams, deltaTime);
+      
       const commandEncoder = resources.device.createCommandEncoder();
       
       // Compute pass
