@@ -1,5 +1,17 @@
 import { initializeWebGPU, checkWebGPUSupport } from "./module/webgpu.js";
+
+type WebGPUResources = {
+  readonly device: GPUDevice;
+  readonly context: GPUCanvasContext;
+  readonly format: GPUTextureFormat;
+};
 import { loadShader, createPipelines } from "./module/shaders.js";
+import { createBufferSet, type SimulationParams } from "./module/buffers.js";
+
+type PipelineSet = {
+  readonly compute: GPUComputePipeline;
+  readonly render: GPURenderPipeline;
+};
 
 async function main(): Promise<void> {
   // Get canvas element
@@ -70,7 +82,7 @@ async function main(): Promise<void> {
   
   // Create pipelines
   console.log("Creating pipelines...");
-  let pipelines;
+  let pipelines: PipelineSet;
   try {
     pipelines = createPipelines(webgpuResult.device, shaderCode);
     console.log("Pipelines created successfully!");
@@ -87,28 +99,25 @@ async function main(): Promise<void> {
     return;
   }
   
-  // Create test data for basic point rendering
-  const agentCount = 100;
-  const agentData = new Float32Array(agentCount * 4); // x, y, vx, vy per agent
+  // Create simulation parameters
+  const simulationParams: SimulationParams = {
+    agentCount: 100,
+    separationRadius: 25.0,
+    alignmentRadius: 50.0,
+    cohesionRadius: 50.0,
+    separationForce: 1.5,
+    alignmentForce: 1.0,
+    cohesionForce: 1.0,
+    maxSpeed: 2.0,
+    worldSize: [canvas.width, canvas.height],
+    neighborRadius: 50.0,
+  };
   
-  // Initialize agents with random positions and velocities
-  for (let i = 0; i < agentCount; i++) {
-    const offset = i * 4;
-    agentData[offset + 0] = Math.random() * canvas.width;      // x position
-    agentData[offset + 1] = Math.random() * canvas.height;     // y position
-    agentData[offset + 2] = (Math.random() - 0.5) * 2;         // x velocity
-    agentData[offset + 3] = (Math.random() - 0.5) * 2;         // y velocity
-  }
+  // Create all buffers using the buffer module
+  const bufferSet = createBufferSet(webgpuResult.device, simulationParams);
   
-  // Create agent buffer
-  const agentBuffer = webgpuResult.device.createBuffer({
-    size: agentData.byteLength,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-  });
-  webgpuResult.device.queue.writeBuffer(agentBuffer, 0, agentData);
-  
-  // Create uniform buffer for render pipeline
-  const uniformData = new Float32Array([
+  // Create uniform buffer for render pipeline (view projection matrix)
+  const renderUniformData = new Float32Array([
     // viewProjection matrix (identity for now)
     1, 0, 0, 0,
     0, 1, 0, 0,
@@ -118,45 +127,101 @@ async function main(): Promise<void> {
     canvas.width, canvas.height,
   ]);
   
-  const uniformBuffer = webgpuResult.device.createBuffer({
-    size: uniformData.byteLength,
+  const renderUniformBuffer = webgpuResult.device.createBuffer({
+    size: renderUniformData.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  webgpuResult.device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+  webgpuResult.device.queue.writeBuffer(renderUniformBuffer, 0, renderUniformData);
   
-  // Create bind group for render pipeline
-  const renderBindGroup = webgpuResult.device.createBindGroup({
-    layout: pipelines.render.getBindGroupLayout(0),
-    entries: [
-      { binding: 0, resource: { buffer: agentBuffer } },
-      { binding: 1, resource: { buffer: uniformBuffer } },
-    ],
-  });
+  // Create compute bind groups for double buffering
+  const computeBindGroups = [
+    webgpuResult.device.createBindGroup({
+      layout: pipelines.compute.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: bufferSet.agentBuffers[0] } },
+        { binding: 1, resource: { buffer: bufferSet.agentBuffers[1] } },
+        { binding: 2, resource: { buffer: bufferSet.uniformBuffer } },
+      ],
+    }),
+    webgpuResult.device.createBindGroup({
+      layout: pipelines.compute.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: bufferSet.agentBuffers[1] } },
+        { binding: 1, resource: { buffer: bufferSet.agentBuffers[0] } },
+        { binding: 2, resource: { buffer: bufferSet.uniformBuffer } },
+      ],
+    }),
+  ];
   
-  // Render a frame
-  const commandEncoder = webgpuResult.device.createCommandEncoder();
-  const textureView = webgpuResult.context.getCurrentTexture().createView();
+  // Create render bind groups for both buffers
+  const renderBindGroups = [
+    webgpuResult.device.createBindGroup({
+      layout: pipelines.render.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: bufferSet.agentBuffers[0] } },
+        { binding: 1, resource: { buffer: renderUniformBuffer } },
+      ],
+    }),
+    webgpuResult.device.createBindGroup({
+      layout: pipelines.render.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: bufferSet.agentBuffers[1] } },
+        { binding: 1, resource: { buffer: renderUniformBuffer } },
+      ],
+    }),
+  ];
   
-  const renderPassDescriptor: GPURenderPassDescriptor = {
-    colorAttachments: [
-      {
-        view: textureView,
-        clearValue: { r: 0.0, g: 0.0, b: 0.2, a: 1.0 },
-        loadOp: "clear",
-        storeOp: "store",
-      },
-    ],
-  };
+  // Start the simulation with render loop
+  let currentBuffer = 0;
   
-  const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-  passEncoder.setPipeline(pipelines.render);
-  passEncoder.setBindGroup(0, renderBindGroup);
-  passEncoder.draw(6, agentCount); // 6 vertices per quad, one instance per agent
-  passEncoder.end();
+  function startSimulation(): void {
+    // Type assertion is safe here because we already checked that webgpuResult is not an Error
+    const resources = webgpuResult as WebGPUResources;
+    
+    function frame(): void {
+      const commandEncoder = resources.device.createCommandEncoder();
+      
+      // Compute pass
+      const computePass = commandEncoder.beginComputePass();
+      computePass.setPipeline(pipelines.compute);
+      computePass.setBindGroup(0, computeBindGroups[currentBuffer]);
+      const workgroupCount = Math.ceil(simulationParams.agentCount / 64);
+      computePass.dispatchWorkgroups(workgroupCount);
+      computePass.end();
+      
+      // Swap buffers for next frame
+      currentBuffer = 1 - currentBuffer;
+      
+      // Render pass
+      const textureView = resources.context.getCurrentTexture().createView();
+      const renderPassDescriptor: GPURenderPassDescriptor = {
+        colorAttachments: [
+          {
+            view: textureView,
+            clearValue: { r: 0.0, g: 0.0, b: 0.2, a: 1.0 },
+            loadOp: "clear",
+            storeOp: "store",
+          },
+        ],
+      };
+      
+      const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
+      renderPass.setPipeline(pipelines.render);
+      renderPass.setBindGroup(0, renderBindGroups[currentBuffer]);
+      renderPass.draw(6, simulationParams.agentCount); // 6 vertices per quad, one instance per agent
+      renderPass.end();
+      
+      resources.device.queue.submit([commandEncoder.finish()]);
+      
+      requestAnimationFrame(frame);
+    }
+    
+    // Start the render loop
+    requestAnimationFrame(frame);
+  }
   
-  webgpuResult.device.queue.submit([commandEncoder.finish()]);
-  
-  console.log("Basic point rendering test completed!");
+  startSimulation();
+  console.log("Flocking simulation started!");
 }
 
 // Start the application
