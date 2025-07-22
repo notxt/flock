@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 
-const PORT = 3000;
+const PORT = 3001;
 const STATIC_DIR = join(import.meta.dirname, "client", "dist");
 
 const mimeTypes: Record<string, string> = {
@@ -15,6 +15,7 @@ const mimeTypes: Record<string, string> = {
   ".gif": "image/gif",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
+  ".wgsl": "text/plain",
 };
 
 type ServeFileResult = { content: Buffer; contentType: string } | Error;

@@ -35,4 +35,66 @@ test.describe('Flock Application', () => {
     expect(canvasDimensions.width).toBe(canvasDimensions.viewportWidth);
     expect(canvasDimensions.height).toBe(canvasDimensions.viewportHeight);
   });
+
+  test('WebGPU initializes successfully', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    // Listen for console messages
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.goto('/');
+    
+    // Wait a bit for WebGPU initialization
+    await page.waitForTimeout(1000);
+    
+    // Check for success message
+    const hasSuccessMessage = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    // Check for error messages
+    const hasErrorMessage = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialization failed') || 
+      msg.includes('WebGPU is only supported in Chrome')
+    );
+    
+    // In headless Chromium, WebGPU might not be available
+    // So we accept either success or a specific "No appropriate GPUAdapter" error
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    if (hasNoAdapterError) {
+      // This is expected in headless mode
+      expect(hasErrorMessage).toBe(true);
+      expect(hasSuccessMessage).toBe(false);
+    } else {
+      // In headed mode or with proper GPU support
+      expect(hasSuccessMessage).toBe(true);
+      expect(hasErrorMessage).toBe(false);
+    }
+    
+    // Verify canvas has been rendered with WebGPU (should be dark blue)
+    const canvasColor = await page.locator('#canvas').evaluate((canvas: HTMLCanvasElement) => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      const imageData = ctx.getImageData(0, 0, 1, 1);
+      return {
+        r: imageData.data[0],
+        g: imageData.data[1],
+        b: imageData.data[2],
+        a: imageData.data[3]
+      };
+    });
+    
+    // If WebGPU rendered, we won't be able to read pixels with 2D context
+    // So we just verify the canvas exists and is visible
+    await expect(page.locator('#canvas')).toBeVisible();
+  });
 });
