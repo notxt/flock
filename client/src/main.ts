@@ -21,6 +21,20 @@ async function main(): Promise<void> {
     return;
   }
   
+  // Resize canvas to match display size
+  const resizeCanvas = (): void => {
+    const displayWidth = canvas.clientWidth;
+    const displayHeight = canvas.clientHeight;
+    
+    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
+    }
+  };
+  
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  
   // Check WebGPU support first
   if (!checkWebGPUSupport()) {
     const errorMessage = "WebGPU is only supported in Chrome 113+. Please use Chrome browser.";
@@ -99,7 +113,7 @@ async function main(): Promise<void> {
     return;
   }
   
-  // Create simulation parameters
+  // Create simulation parameters (after canvas is resized)
   const simulationParams: SimulationParams = {
     agentCount: 100,
     separationRadius: 25.0,
