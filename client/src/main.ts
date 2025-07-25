@@ -6,7 +6,7 @@ type WebGPUResources = {
   readonly format: GPUTextureFormat;
 };
 import { loadShader, createPipelines } from "./module/shaders.js";
-import { createBufferSet, type SimulationParams } from "./module/buffers.js";
+import { createBufferSet, updateUniforms, type SimulationParams } from "./module/buffers.js";
 
 type PipelineSet = {
   readonly compute: GPUComputePipeline;
@@ -116,9 +116,9 @@ async function main(): Promise<void> {
   // Create simulation parameters (after canvas is resized)
   const simulationParams: SimulationParams = {
     agentCount: 100,
-    separationRadius: 25.0,
-    alignmentRadius: 50.0,
-    cohesionRadius: 50.0,
+    separationRadius: 20.0,    // Closer separation for tighter flocks
+    alignmentRadius: 40.0,     // Medium range for alignment
+    cohesionRadius: 40.0,      // Medium range for cohesion
     separationForce: 1.5,
     alignmentForce: 1.0,
     cohesionForce: 1.0,
@@ -191,12 +191,23 @@ async function main(): Promise<void> {
   
   // Start the simulation with render loop
   let currentBuffer = 0;
+  let lastTime = performance.now();
   
   function startSimulation(): void {
     // Type assertion is safe here because we already checked that webgpuResult is not an Error
     const resources = webgpuResult as WebGPUResources;
     
-    function frame(): void {
+    function frame(currentTime: number): void {
+      const deltaTimeMs = currentTime - lastTime;
+      lastTime = currentTime;
+      
+      // Scale deltaTime to maintain reasonable movement speed while being frame-rate independent
+      // Target 60fps (16.67ms) as baseline, so at 60fps deltaTime = 1.0
+      const deltaTime = deltaTimeMs / 16.67;
+      
+      // Update uniform buffer with scaled deltaTime
+      updateUniforms(resources.device, bufferSet.uniformBuffer, simulationParams, deltaTime);
+      
       const commandEncoder = resources.device.createCommandEncoder();
       
       // Compute pass

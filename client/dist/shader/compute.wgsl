@@ -13,6 +13,8 @@ struct SimParams {
   cohesionForce: f32,
   maxSpeed: f32,
   worldSize: vec2<f32>,
+  neighborRadius: f32,
+  deltaTime: f32,
 }
 
 @group(0) @binding(0) var<storage, read> agentsIn: array<Agent>;
@@ -34,7 +36,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   var alignmentCount: u32 = 0u;
   var cohesionCount: u32 = 0u;
   
-  // Check all other agents
+  // Check all other agents using different radii for each behavior
   for (var i: u32 = 0u; i < params.agentCount; i = i + 1u) {
     if (i == idx) {
       continue;
@@ -44,20 +46,20 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let diff = agent.position - other.position;
     let distSq = dot(diff, diff);
     
-    // Separation
+    // Separation - closest interactions, avoid crowding
     if (distSq < params.separationRadius * params.separationRadius && distSq > 0.0) {
       let dist = sqrt(distSq);
       separation = separation + (diff / dist);
       separationCount = separationCount + 1u;
     }
     
-    // Alignment
+    // Alignment - medium range, match neighbor velocities
     if (distSq < params.alignmentRadius * params.alignmentRadius) {
       alignment = alignment + other.velocity;
       alignmentCount = alignmentCount + 1u;
     }
     
-    // Cohesion
+    // Cohesion - medium range, move toward group center
     if (distSq < params.cohesionRadius * params.cohesionRadius) {
       cohesion = cohesion + other.position;
       cohesionCount = cohesionCount + 1u;
@@ -67,16 +69,19 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   // Calculate forces
   var velocity = agent.velocity;
   
+  // Separation: avoid crowding
   if (separationCount > 0u) {
     separation = normalize(separation / f32(separationCount)) * params.separationForce;
     velocity = velocity + separation;
   }
   
+  // Alignment: match neighbor velocities
   if (alignmentCount > 0u) {
     alignment = normalize(alignment / f32(alignmentCount)) * params.alignmentForce;
     velocity = velocity + alignment;
   }
   
+  // Cohesion: move toward group center
   if (cohesionCount > 0u) {
     cohesion = (cohesion / f32(cohesionCount)) - agent.position;
     cohesion = normalize(cohesion) * params.cohesionForce;
@@ -89,8 +94,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     velocity = normalize(velocity) * params.maxSpeed;
   }
   
-  // Update position
-  var position = agent.position + velocity;
+  // Update position with deltaTime
+  var position = agent.position + velocity * params.deltaTime;
   
   // Wrap around boundaries
   if (position.x < 0.0) {
