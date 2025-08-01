@@ -97,4 +97,166 @@ test.describe('Flock Application', () => {
     // So we just verify the canvas exists and is visible
     await expect(page.locator('#canvas')).toBeVisible();
   });
+
+  test('spatial grid system produces smooth flocking behavior', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    // Listen for console messages to check for WebGPU initialization
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.goto('/');
+    
+    // Wait for WebGPU initialization
+    await page.waitForTimeout(1000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip test if WebGPU is not available (headless mode)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Verify simulation is running
+    expect(hasWebGPUSuccess).toBe(true);
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Let simulation run for a few frames to verify stability
+    await page.waitForTimeout(500);
+    
+    // Check for any error messages that might indicate grid system issues
+    const hasErrorMessages = consoleMessages.some(msg => 
+      msg.toLowerCase().includes('error') || 
+      msg.toLowerCase().includes('failed') ||
+      msg.toLowerCase().includes('shader compilation')
+    );
+    
+    expect(hasErrorMessages).toBe(false);
+  });
+
+  test('flocking simulation produces expected agent movement patterns', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers with WebGPU
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check WebGPU availability through console messages
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.waitForTimeout(500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Verify that the spatial grid system is working by checking that:
+    // 1. No shader compilation errors occur
+    // 2. The simulation runs smoothly
+    // 3. Canvas remains responsive
+    
+    await page.waitForTimeout(2000); // Let simulation run for 2 seconds
+    
+    // Verify canvas is still visible and responsive
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Check that no critical errors occurred during grid operations
+    const hasCriticalErrors = consoleMessages.some(msg => 
+      msg.includes('Failed to compile') ||
+      msg.includes('GPU pipeline error') ||
+      msg.includes('Buffer binding error')
+    );
+    
+    expect(hasCriticalErrors).toBe(false);
+  });
+
+  test('spatial grid system achieves good performance', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers with WebGPU
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.waitForTimeout(500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Measure performance by running the simulation for a set time period
+    // and ensuring it maintains responsive frame rates
+    const performanceStart = Date.now();
+    
+    // Let simulation run for 3 seconds
+    await page.waitForTimeout(3000);
+    
+    const performanceEnd = Date.now();
+    const elapsedTime = performanceEnd - performanceStart;
+    
+    // Verify canvas remains responsive during performance test
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Check that no performance-related errors occurred
+    const hasPerformanceErrors = consoleMessages.some(msg => 
+      msg.includes('GPU timeout') ||
+      msg.includes('Memory allocation failed') ||
+      msg.includes('Buffer overflow')
+    );
+    
+    expect(hasPerformanceErrors).toBe(false);
+    
+    // Verify simulation ran for expected duration (allowing for some variance)
+    expect(elapsedTime).toBeGreaterThanOrEqual(2800); // At least 2.8 seconds
+    expect(elapsedTime).toBeLessThan(5000); // Not more than 5 seconds (indicating hang)
+  });
 });

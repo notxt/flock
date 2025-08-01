@@ -2,12 +2,14 @@
 
 type ShaderCode = {
   readonly compute: string;
+  readonly gridPopulate: string;
   readonly vertex: string;
   readonly fragment: string;
 };
 
 type PipelineSet = {
   readonly compute: GPUComputePipeline;
+  readonly gridPopulate: GPUComputePipeline;
   readonly render: GPURenderPipeline;
 };
 
@@ -45,6 +47,17 @@ export function createPipelines(device: GPUDevice, shaderCode: ShaderCode): Pipe
     throw new Error(`Failed to compile compute shader: ${e instanceof Error ? e.message : String(e)}`);
   }
   
+  // Create grid populate shader module
+  let gridPopulateModule: GPUShaderModule;
+  try {
+    gridPopulateModule = device.createShaderModule({
+      label: "Grid populate shader",
+      code: shaderCode.gridPopulate,
+    });
+  } catch (e) {
+    throw new Error(`Failed to compile grid populate shader: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  
   // Create vertex shader module
   let vertexModule: GPUShaderModule;
   try {
@@ -77,6 +90,16 @@ export function createPipelines(device: GPUDevice, shaderCode: ShaderCode): Pipe
     },
   });
   
+  // Create grid populate pipeline
+  const gridPopulatePipeline = device.createComputePipeline({
+    label: "Grid populate compute pipeline",
+    layout: "auto",
+    compute: {
+      module: gridPopulateModule,
+      entryPoint: "main",
+    },
+  });
+  
   // Create render pipeline
   const renderPipeline = device.createRenderPipeline({
     label: "Agent render pipeline",
@@ -99,6 +122,7 @@ export function createPipelines(device: GPUDevice, shaderCode: ShaderCode): Pipe
   
   return {
     compute: computePipeline,
+    gridPopulate: gridPopulatePipeline,
     render: renderPipeline,
   };
 }
