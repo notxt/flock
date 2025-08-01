@@ -6,10 +6,11 @@ type WebGPUResources = {
   readonly format: GPUTextureFormat;
 };
 import { loadShader, createPipelines } from "./module/shaders.js";
-import { createBufferSet, updateUniforms, type SimulationParams } from "./module/buffers.js";
+import { createBufferSet, updateUniforms } from "./module/buffers.js";
 
 type PipelineSet = {
   readonly compute: GPUComputePipeline;
+  readonly gridPopulate: GPUComputePipeline;
   readonly render: GPURenderPipeline;
 };
 
@@ -77,6 +78,7 @@ async function main(): Promise<void> {
   try {
     shaderCode = {
       compute: await loadShader("./shader/compute.wgsl"),
+      gridPopulate: await loadShader("./shader/grid_populate.wgsl"),
       vertex: await loadShader("./shader/vertex.wgsl"),
       fragment: await loadShader("./shader/fragment.wgsl"),
     };
@@ -114,8 +116,8 @@ async function main(): Promise<void> {
   }
   
   // Create simulation parameters (after canvas is resized)
-  const simulationParams: SimulationParams = {
-    agentCount: 100,
+  const simulationParamsInput = {
+    agentCount: 10000,
     separationRadius: 20.0,    // Closer separation for tighter flocks
     alignmentRadius: 40.0,     // Medium range for alignment
     cohesionRadius: 40.0,      // Medium range for cohesion
@@ -123,12 +125,12 @@ async function main(): Promise<void> {
     alignmentForce: 1.0,
     cohesionForce: 1.0,
     maxSpeed: 2.0,
-    worldSize: [canvas.width, canvas.height],
+    worldSize: [canvas.width, canvas.height] as const,
     neighborRadius: 50.0,
   };
   
   // Create all buffers using the buffer module
-  const bufferSet = createBufferSet(webgpuResult.device, simulationParams);
+  const bufferSet = createBufferSet(webgpuResult.device, simulationParamsInput);
   
   // Create uniform buffer for render pipeline (view projection matrix)
   // Must be at least 80 bytes to match WGSL Uniforms struct with padding
@@ -151,7 +153,7 @@ async function main(): Promise<void> {
   });
   webgpuResult.device.queue.writeBuffer(renderUniformBuffer, 0, renderUniformData);
   
-  // Create compute bind groups for double buffering
+  // Create compute bind groups for double buffering (now includes grid buffers)
   const computeBindGroups = [
     webgpuResult.device.createBindGroup({
       layout: pipelines.compute.getBindGroupLayout(0),
@@ -159,6 +161,8 @@ async function main(): Promise<void> {
         { binding: 0, resource: { buffer: bufferSet.agentBuffers[0] } },
         { binding: 1, resource: { buffer: bufferSet.agentBuffers[1] } },
         { binding: 2, resource: { buffer: bufferSet.uniformBuffer } },
+        { binding: 3, resource: { buffer: bufferSet.gridBuffer } },
+        { binding: 4, resource: { buffer: bufferSet.gridIndicesBuffer } },
       ],
     }),
     webgpuResult.device.createBindGroup({
@@ -167,6 +171,30 @@ async function main(): Promise<void> {
         { binding: 0, resource: { buffer: bufferSet.agentBuffers[1] } },
         { binding: 1, resource: { buffer: bufferSet.agentBuffers[0] } },
         { binding: 2, resource: { buffer: bufferSet.uniformBuffer } },
+        { binding: 3, resource: { buffer: bufferSet.gridBuffer } },
+        { binding: 4, resource: { buffer: bufferSet.gridIndicesBuffer } },
+      ],
+    }),
+  ];
+
+  // Create grid populate bind groups for double buffering
+  const gridPopulateBindGroups = [
+    webgpuResult.device.createBindGroup({
+      layout: pipelines.gridPopulate.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: bufferSet.agentBuffers[0] } },
+        { binding: 1, resource: { buffer: bufferSet.gridBuffer } },
+        { binding: 2, resource: { buffer: bufferSet.gridIndicesBuffer } },
+        { binding: 3, resource: { buffer: bufferSet.uniformBuffer } },
+      ],
+    }),
+    webgpuResult.device.createBindGroup({
+      layout: pipelines.gridPopulate.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: bufferSet.agentBuffers[1] } },
+        { binding: 1, resource: { buffer: bufferSet.gridBuffer } },
+        { binding: 2, resource: { buffer: bufferSet.gridIndicesBuffer } },
+        { binding: 3, resource: { buffer: bufferSet.uniformBuffer } },
       ],
     }),
   ];
@@ -206,15 +234,29 @@ async function main(): Promise<void> {
       const deltaTime = deltaTimeMs / 16.67;
       
       // Update uniform buffer with scaled deltaTime
-      updateUniforms(resources.device, bufferSet.uniformBuffer, simulationParams, deltaTime);
+      updateUniforms(resources.device, bufferSet.uniformBuffer, bufferSet.params, deltaTime);
       
       const commandEncoder = resources.device.createCommandEncoder();
+      
+      // Clear grid buffers - clear the indices buffer to reset agent counts per cell
+      const cellCount = bufferSet.params.gridWidth * bufferSet.params.gridHeight;
+      const emptyIndices = new Uint32Array(cellCount);
+      emptyIndices.fill(0);
+      resources.device.queue.writeBuffer(bufferSet.gridIndicesBuffer, 0, emptyIndices);
+      
+      // Grid populate pass - assign agents to grid cells
+      const gridPopulatePass = commandEncoder.beginComputePass();
+      gridPopulatePass.setPipeline(pipelines.gridPopulate);
+      gridPopulatePass.setBindGroup(0, gridPopulateBindGroups[currentBuffer]);
+      const gridWorkgroupCount = Math.ceil(bufferSet.params.agentCount / 64);
+      gridPopulatePass.dispatchWorkgroups(gridWorkgroupCount);
+      gridPopulatePass.end();
       
       // Compute pass
       const computePass = commandEncoder.beginComputePass();
       computePass.setPipeline(pipelines.compute);
       computePass.setBindGroup(0, computeBindGroups[currentBuffer]);
-      const workgroupCount = Math.ceil(simulationParams.agentCount / 64);
+      const workgroupCount = Math.ceil(bufferSet.params.agentCount / 64);
       computePass.dispatchWorkgroups(workgroupCount);
       computePass.end();
       
@@ -237,7 +279,7 @@ async function main(): Promise<void> {
       const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
       renderPass.setPipeline(pipelines.render);
       renderPass.setBindGroup(0, renderBindGroups[currentBuffer]);
-      renderPass.draw(6, simulationParams.agentCount); // 6 vertices per quad, one instance per agent
+      renderPass.draw(6, bufferSet.params.agentCount); // 6 vertices per quad, one instance per agent
       renderPass.end();
       
       resources.device.queue.submit([commandEncoder.finish()]);

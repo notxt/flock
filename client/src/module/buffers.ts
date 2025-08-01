@@ -9,6 +9,10 @@ type SimulationParams = {
   readonly maxSpeed: number;
   readonly worldSize: readonly [number, number];
   readonly neighborRadius: number;
+  readonly gridCellSize: number;
+  readonly gridWidth: number;
+  readonly gridHeight: number;
+  readonly maxAgentsPerCell: number;
 };
 
 type BufferSet = {
@@ -16,6 +20,7 @@ type BufferSet = {
   readonly uniformBuffer: GPUBuffer;
   readonly gridBuffer: GPUBuffer;
   readonly gridIndicesBuffer: GPUBuffer;
+  readonly params: SimulationParams;
 };
 
 type GridConfig = {
@@ -26,7 +31,7 @@ type GridConfig = {
 };
 
 const AGENT_SIZE_BYTES = 16; // 4 floats: x, y, vx, vy
-const UNIFORM_SIZE_BYTES = 56; // SimParams struct size with deltaTime and neighborRadius
+const UNIFORM_SIZE_BYTES = 72; // SimParams struct size with deltaTime, neighborRadius, and grid parameters
 const MAX_AGENTS_PER_CELL = 32;
 const EMPTY_CELL_MARKER = 0xFFFFFFFF;
 
@@ -78,12 +83,22 @@ function createGridIndicesBuffer(device: GPUDevice, gridConfig: GridConfig): GPU
   });
 }
 
-export function createBufferSet(device: GPUDevice, params: SimulationParams): BufferSet {
+export function createBufferSet(device: GPUDevice, inputParams: Omit<SimulationParams, 'gridCellSize' | 'gridWidth' | 'gridHeight' | 'maxAgentsPerCell'>): BufferSet {
+  const gridConfig = calculateGridConfig(inputParams.worldSize, inputParams.neighborRadius);
+  
+  // Create complete SimulationParams with grid parameters
+  const params: SimulationParams = {
+    ...inputParams,
+    gridCellSize: gridConfig.cellSize,
+    gridWidth: gridConfig.gridWidth,
+    gridHeight: gridConfig.gridHeight,
+    maxAgentsPerCell: gridConfig.maxAgentsPerCell,
+  };
+  
   const agentBuffer1 = createAgentBuffer(device, params.agentCount);
   const agentBuffer2 = createAgentBuffer(device, params.agentCount);
   const uniformBuffer = createUniformBuffer(device);
   
-  const gridConfig = calculateGridConfig(params.worldSize, params.neighborRadius);
   const gridBuffer = createGridBuffer(device, gridConfig);
   const gridIndicesBuffer = createGridIndicesBuffer(device, gridConfig);
   
@@ -110,6 +125,7 @@ export function createBufferSet(device: GPUDevice, params: SimulationParams): Bu
     uniformBuffer,
     gridBuffer,
     gridIndicesBuffer,
+    params,
   };
 }
 
@@ -130,9 +146,13 @@ export function updateUniforms(device: GPUDevice, buffer: GPUBuffer, params: Sim
   view.setFloat32(36, params.worldSize[1], true);
   view.setFloat32(40, params.neighborRadius, true);
   view.setFloat32(44, deltaTime, true);
+  view.setFloat32(48, params.gridCellSize, true);
+  view.setUint32(52, params.gridWidth, true);
+  view.setUint32(56, params.gridHeight, true);
+  view.setUint32(60, params.maxAgentsPerCell, true);
   // Padding to align to 16 bytes
-  view.setFloat32(48, 0, true);
-  view.setFloat32(52, 0, true);
+  view.setFloat32(64, 0, true);
+  view.setFloat32(68, 0, true);
   
   device.queue.writeBuffer(buffer, 0, uniformData);
 }

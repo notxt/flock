@@ -15,11 +15,38 @@ struct SimParams {
   worldSize: vec2<f32>,
   neighborRadius: f32,
   deltaTime: f32,
+  gridCellSize: f32,
+  gridWidth: u32,
+  gridHeight: u32,
+  maxAgentsPerCell: u32,
 }
 
 @group(0) @binding(0) var<storage, read> agentsIn: array<Agent>;
 @group(0) @binding(1) var<storage, read_write> agentsOut: array<Agent>;
 @group(0) @binding(2) var<uniform> params: SimParams;
+@group(0) @binding(3) var<storage, read> gridData: array<u32>;
+@group(0) @binding(4) var<storage, read> gridIndices: array<u32>;
+
+const EMPTY_CELL_MARKER: u32 = 0xFFFFFFFFu;
+
+// Convert world position to grid coordinates
+fn worldToGrid(position: vec2<f32>) -> vec2<u32> {
+  var gridPos = vec2<u32>(
+    u32(position.x / params.gridCellSize),
+    u32(position.y / params.gridCellSize)
+  );
+  
+  // Clamp to grid bounds
+  gridPos.x = min(gridPos.x, params.gridWidth - 1u);
+  gridPos.y = min(gridPos.y, params.gridHeight - 1u);
+  
+  return gridPos;
+}
+
+// Convert grid coordinates to linear cell index
+fn gridToIndex(gridPos: vec2<u32>) -> u32 {
+  return gridPos.y * params.gridWidth + gridPos.x;
+}
 
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -36,33 +63,58 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   var alignmentCount: u32 = 0u;
   var cohesionCount: u32 = 0u;
   
-  // Check all other agents using different radii for each behavior
-  for (var i: u32 = 0u; i < params.agentCount; i = i + 1u) {
-    if (i == idx) {
-      continue;
-    }
-    
-    let other = agentsIn[i];
-    let diff = agent.position - other.position;
-    let distSq = dot(diff, diff);
-    
-    // Separation - closest interactions, avoid crowding
-    if (distSq < params.separationRadius * params.separationRadius && distSq > 0.0) {
-      let dist = sqrt(distSq);
-      separation = separation + (diff / dist);
-      separationCount = separationCount + 1u;
-    }
-    
-    // Alignment - medium range, match neighbor velocities
-    if (distSq < params.alignmentRadius * params.alignmentRadius) {
-      alignment = alignment + other.velocity;
-      alignmentCount = alignmentCount + 1u;
-    }
-    
-    // Cohesion - medium range, move toward group center
-    if (distSq < params.cohesionRadius * params.cohesionRadius) {
-      cohesion = cohesion + other.position;
-      cohesionCount = cohesionCount + 1u;
+  // Get current agent's grid cell
+  let agentGridPos = worldToGrid(agent.position);
+  
+  // Check 3x3 neighborhood around current cell
+  for (var dy: i32 = -1; dy <= 1; dy = dy + 1) {
+    for (var dx: i32 = -1; dx <= 1; dx = dx + 1) {
+      let neighborX = i32(agentGridPos.x) + dx;
+      let neighborY = i32(agentGridPos.y) + dy;
+      
+      // Skip if neighbor cell is out of bounds
+      if (neighborX < 0 || neighborX >= i32(params.gridWidth) ||
+          neighborY < 0 || neighborY >= i32(params.gridHeight)) {
+        continue;
+      }
+      
+      let neighborGridPos = vec2<u32>(u32(neighborX), u32(neighborY));
+      let neighborCellIdx = gridToIndex(neighborGridPos);
+      let neighborCount = gridIndices[neighborCellIdx];
+      
+      // Check all agents in this neighbor cell
+      for (var i: u32 = 0u; i < min(neighborCount, params.maxAgentsPerCell); i = i + 1u) {
+        let neighborGridDataIdx = neighborCellIdx * params.maxAgentsPerCell + i;
+        let neighborIdx = gridData[neighborGridDataIdx];
+        
+        // Skip if this is the same agent or invalid index
+        if (neighborIdx == idx || neighborIdx == EMPTY_CELL_MARKER || neighborIdx >= params.agentCount) {
+          continue;
+        }
+        
+        let other = agentsIn[neighborIdx];
+        let diff = agent.position - other.position;
+        let distSq = dot(diff, diff);
+        
+        // Separation - closest interactions, avoid crowding
+        if (distSq < params.separationRadius * params.separationRadius && distSq > 0.0) {
+          let dist = sqrt(distSq);
+          separation = separation + (diff / dist);
+          separationCount = separationCount + 1u;
+        }
+        
+        // Alignment - medium range, match neighbor velocities
+        if (distSq < params.alignmentRadius * params.alignmentRadius) {
+          alignment = alignment + other.velocity;
+          alignmentCount = alignmentCount + 1u;
+        }
+        
+        // Cohesion - medium range, move toward group center
+        if (distSq < params.cohesionRadius * params.cohesionRadius) {
+          cohesion = cohesion + other.position;
+          cohesionCount = cohesionCount + 1u;
+        }
+      }
     }
   }
   

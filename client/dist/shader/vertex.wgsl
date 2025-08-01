@@ -21,7 +21,7 @@ fn main(@builtin(instance_index) instanceIdx: u32, @builtin(vertex_index) vertex
   let agent = agents[instanceIdx];
   
   // Create a small quad for each agent
-  let pointSize = 2.0;
+  let pointSize = 1.0;
   var vertices = array<vec2<f32>, 6>(
     vec2<f32>(-pointSize, -pointSize),
     vec2<f32>( pointSize, -pointSize),

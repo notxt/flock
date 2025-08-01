@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : 1,
   reporter: 'line',
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:4000',
     trace: 'on-first-retry',
   },
 
@@ -21,7 +21,7 @@ export default defineConfig({
 
   webServer: {
     command: 'npm run dev',
-    port: 3001,
+    port: 4000,
     reuseExistingServer: !process.env.CI,
   },
 });
