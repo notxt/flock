@@ -66,27 +66,30 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
   }
   
-  // Calculate forces
-  var velocity = agent.velocity;
+  // Calculate acceleration from forces
+  var acceleration = vec2<f32>(0.0, 0.0);
   
   // Separation: avoid crowding
   if (separationCount > 0u) {
     separation = normalize(separation / f32(separationCount)) * params.separationForce;
-    velocity = velocity + separation;
+    acceleration = acceleration + separation;
   }
   
   // Alignment: match neighbor velocities
   if (alignmentCount > 0u) {
     alignment = normalize(alignment / f32(alignmentCount)) * params.alignmentForce;
-    velocity = velocity + alignment;
+    acceleration = acceleration + alignment;
   }
   
   // Cohesion: move toward group center
   if (cohesionCount > 0u) {
     cohesion = (cohesion / f32(cohesionCount)) - agent.position;
     cohesion = normalize(cohesion) * params.cohesionForce;
-    velocity = velocity + cohesion;
+    acceleration = acceleration + cohesion;
   }
+  
+  // Update velocity with acceleration over time
+  var velocity = agent.velocity + acceleration * params.deltaTime;
   
   // Limit speed
   let speed = length(velocity);
