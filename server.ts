@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { join, extname } from "node:path";
 
-const PORT = 3001;
+const PORT = 4000;
 const STATIC_DIR = join(import.meta.dirname, "client", "dist");
 
 const mimeTypes: Record<string, string> = {

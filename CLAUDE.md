@@ -71,6 +71,13 @@
 - Development server for local testing
 - GitHub Actions for continuous integration
 
+## Available Scripts
+
+- `npm run dev > log/dev.log 2>&1 &` - Start development server with file watching (Node.js watch mode) as background process
+- `npm run build` - Build TypeScript client code to JavaScript
+- `npm run watch > log/watch.log 2>&1 &` - Build TypeScript client code in watch mode for continuous compilation as background process
+- `npm test` - Run Playwright end-to-end tests
+
 ## Code Organization
 
 - Pure functions at module level
