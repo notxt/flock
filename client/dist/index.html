@@ -10,11 +10,333 @@
             padding: 0;
             overflow: hidden;
             background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
         }
+        
         canvas {
             display: block;
             width: 100vw;
             height: 100vh;
+        }
+        
+        /* Control Panel Styles */
+        .control-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            min-width: 300px;
+            max-height: 80vh;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+        
+        .control-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .control-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        
+        .control-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+        
+        .control-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        
+        /* Slider Group Styles */
+        .slider-group {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .ui-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #e0e0e0;
+        }
+        
+        .ui-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .ui-slider:hover {
+            opacity: 1;
+        }
+        
+        .ui-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+        
+        .ui-slider::-webkit-slider-thumb:hover {
+            background: #45a049;
+            transform: scale(1.1);
+        }
+        
+        .ui-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+        
+        .slider-value {
+            display: inline-block;
+            float: right;
+            font-size: 12px;
+            color: #4CAF50;
+            font-weight: 600;
+            background: rgba(76, 175, 80, 0.1);
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-top: -2px;
+        }
+        
+        /* Button Styles */
+        .ui-button {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            border: none;
+            color: white;
+            padding: 10px 16px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .ui-button:hover {
+            background: linear-gradient(135deg, #45a049, #3d8b40);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .ui-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .toggle-button {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+        
+        .toggle-button:hover {
+            background: linear-gradient(135deg, #1976D2, #1565C0);
+        }
+        
+        .reset-button {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+        }
+        
+        .reset-button:hover {
+            background: linear-gradient(135deg, #F57C00, #E65100);
+        }
+        
+        /* Performance Display Styles */
+        .performance-display {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin: 4px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        
+        .fps-display {
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .frame-time-display {
+            border-left: 4px solid #2196F3;
+        }
+        
+        .info-display {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            padding: 6px 10px;
+            margin: 2px 0;
+            font-size: 12px;
+            color: #ccc;
+        }
+        
+        .agent-count-display {
+            border-left: 3px solid #FF9800;
+        }
+        
+        /* Performance Status Colors */
+        .performance-excellent {
+            color: #4CAF50;
+        }
+        
+        .performance-good {
+            color: #8BC34A;
+        }
+        
+        .performance-fair {
+            color: #FF9800;
+        }
+        
+        .performance-poor {
+            color: #F44336;
+        }
+        
+        /* Toggle Panel Button - Fixed Position */
+        .toggle-panel-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            border: none;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-panel-button:hover {
+            background: linear-gradient(135deg, #1976D2, #1565C0);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
+        }
+        
+        /* Hidden Panel State */
+        .control-panel.hidden {
+            transform: translateX(calc(100% + 20px));
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .control-panel {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                min-width: auto;
+                max-height: 60vh;
+            }
+            
+            .toggle-panel-button {
+                top: 10px;
+                right: 10px;
+                padding: 10px 14px;
+                font-size: 12px;
+            }
+            
+            .slider-group {
+                margin-bottom: 12px;
+                padding: 10px;
+            }
+            
+            .ui-button {
+                width: 100%;
+                margin: 2px 0;
+            }
+        }
+        
+        /* Loading Animation */
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+        
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        /* Fade In Animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .control-panel {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        /* Error State Styles */
+        .error-message {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin: 8px 0;
+            color: #ff6b6b;
+            font-size: 12px;
+        }
+        
+        /* Success State Styles */
+        .success-message {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin: 8px 0;
+            color: #81c784;
+            font-size: 12px;
         }
     </style>
 </head>

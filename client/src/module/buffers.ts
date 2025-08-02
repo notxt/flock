@@ -172,5 +172,135 @@ export function initializeAgents(params: SimulationParams): Float32Array {
   return agentData;
 }
 
+// Pure function to update simulation parameters
+export function updateSimulationParams(
+  currentParams: SimulationParams,
+  parameterUpdates: ReadonlyMap<string, number>
+): SimulationParams | Error {
+  const updates = { ...currentParams };
+  
+  for (const [parameterId, value] of parameterUpdates) {
+    switch (parameterId) {
+      case "separationRadius":
+        if (value < 1 || value > 200) {
+          return new Error(`Separation radius must be between 1 and 200, got ${value}`);
+        }
+        updates.separationRadius = value;
+        break;
+        
+      case "alignmentRadius":
+        if (value < 1 || value > 200) {
+          return new Error(`Alignment radius must be between 1 and 200, got ${value}`);
+        }
+        updates.alignmentRadius = value;
+        break;
+        
+      case "cohesionRadius":
+        if (value < 1 || value > 200) {
+          return new Error(`Cohesion radius must be between 1 and 200, got ${value}`);
+        }
+        updates.cohesionRadius = value;
+        break;
+        
+      case "separationForce":
+        if (value < 0.1 || value > 10) {
+          return new Error(`Separation force must be between 0.1 and 10, got ${value}`);
+        }
+        updates.separationForce = value;
+        break;
+        
+      case "alignmentForce":
+        if (value < 0.1 || value > 10) {
+          return new Error(`Alignment force must be between 0.1 and 10, got ${value}`);
+        }
+        updates.alignmentForce = value;
+        break;
+        
+      case "cohesionForce":
+        if (value < 0.1 || value > 10) {
+          return new Error(`Cohesion force must be between 0.1 and 10, got ${value}`);
+        }
+        updates.cohesionForce = value;
+        break;
+        
+      case "maxSpeed":
+        if (value < 0.1 || value > 20) {
+          return new Error(`Max speed must be between 0.1 and 20, got ${value}`);
+        }
+        updates.maxSpeed = value;
+        break;
+        
+      default:
+        return new Error(`Unknown parameter: ${parameterId}`);
+    }
+  }
+  
+  // Recalculate neighbor radius as the maximum of all interaction radii
+  const maxRadius = Math.max(updates.separationRadius, updates.alignmentRadius, updates.cohesionRadius);
+  updates.neighborRadius = maxRadius;
+  
+  // Recalculate grid configuration if neighbor radius changed
+  if (updates.neighborRadius !== currentParams.neighborRadius) {
+    const gridConfig = calculateGridConfig(updates.worldSize, updates.neighborRadius);
+    updates.gridCellSize = gridConfig.cellSize;
+    updates.gridWidth = gridConfig.gridWidth;
+    updates.gridHeight = gridConfig.gridHeight;
+    updates.maxAgentsPerCell = gridConfig.maxAgentsPerCell;
+  }
+  
+  return updates;
+}
+
+// Pure function to create new buffer set with updated agent count
+export function createBufferSetWithNewAgentCount(
+  device: GPUDevice,
+  currentParams: SimulationParams,
+  newAgentCount: number
+): BufferSet | Error {
+  if (newAgentCount < 1 || newAgentCount > 10000) {
+    return new Error(`Agent count must be between 1 and 10000, got ${newAgentCount}`);
+  }
+  
+  const updatedParams: SimulationParams = {
+    ...currentParams,
+    agentCount: newAgentCount,
+  };
+  
+  return createBufferSet(device, {
+    agentCount: updatedParams.agentCount,
+    separationRadius: updatedParams.separationRadius,
+    alignmentRadius: updatedParams.alignmentRadius,
+    cohesionRadius: updatedParams.cohesionRadius,
+    separationForce: updatedParams.separationForce,
+    alignmentForce: updatedParams.alignmentForce,
+    cohesionForce: updatedParams.cohesionForce,
+    maxSpeed: updatedParams.maxSpeed,
+    worldSize: updatedParams.worldSize,
+    neighborRadius: updatedParams.neighborRadius,
+  });
+}
+
+// Pure function to get default simulation parameters
+export function getDefaultSimulationParams(worldSize: readonly [number, number]): SimulationParams {
+  const gridConfig = calculateGridConfig(worldSize, 50.0);
+  
+  return {
+    agentCount: 100,
+    separationRadius: 20.0,
+    alignmentRadius: 40.0,
+    cohesionRadius: 40.0,
+    separationForce: 1.5,
+    alignmentForce: 1.0,
+    cohesionForce: 1.0,
+    maxSpeed: 2.0,
+    worldSize,
+    neighborRadius: 50.0,
+    gridCellSize: gridConfig.cellSize,
+    gridWidth: gridConfig.gridWidth,
+    gridHeight: gridConfig.gridHeight,
+    maxAgentsPerCell: gridConfig.maxAgentsPerCell,
+  };
+}
+
 // Export types for use in other modules
 export type { SimulationParams, BufferSet, GridConfig };

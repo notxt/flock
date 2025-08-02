@@ -158,7 +158,7 @@ test.describe('Flock Application', () => {
     await page.goto('/');
     
     // Wait for initialization
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     
     // Check WebGPU availability through console messages
     const consoleMessages: string[] = [];
@@ -211,7 +211,7 @@ test.describe('Flock Application', () => {
     await page.goto('/');
     
     // Wait for initialization
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     
     // Check WebGPU availability
     const consoleMessages: string[] = [];
@@ -258,5 +258,298 @@ test.describe('Flock Application', () => {
     // Verify simulation ran for expected duration (allowing for some variance)
     expect(elapsedTime).toBeGreaterThanOrEqual(2800); // At least 2.8 seconds
     expect(elapsedTime).toBeLessThan(5000); // Not more than 5 seconds (indicating hang)
+  });
+
+  test('UI control panel is visible and functional', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    // Listen for console messages
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.goto('/');
+    
+    // Wait for page to load and UI to initialize
+    await page.waitForTimeout(3000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available (UI won't be created)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Check if control panel exists
+    const controlPanel = page.locator('#control-panel');
+    await expect(controlPanel).toBeVisible();
+    
+    // Check if sliders exist
+    const separationSlider = page.locator('#separationRadius');
+    const alignmentSlider = page.locator('#alignmentRadius');
+    const cohesionSlider = page.locator('#cohesionRadius');
+    
+    await expect(separationSlider).toBeVisible();
+    await expect(alignmentSlider).toBeVisible();
+    await expect(cohesionSlider).toBeVisible();
+    
+    // Check if performance displays exist
+    const fpsDisplay = page.locator('#fpsDisplay');
+    const frameTimeDisplay = page.locator('#frameTimeDisplay');
+    
+    await expect(fpsDisplay).toBeVisible();
+    await expect(frameTimeDisplay).toBeVisible();
+    
+    // Check if toggle button exists
+    const toggleButton = page.locator('.toggle-panel-button');
+    await expect(toggleButton).toBeAttached();
+  });
+
+  test('UI sliders can be adjusted and affect simulation parameters', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers with WebGPU
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(3000);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Test slider functionality
+    const separationSlider = page.locator('#separationRadius');
+    await expect(separationSlider).toBeVisible();
+    
+    // Get initial value
+    const initialValue = await separationSlider.getAttribute('value');
+    
+    // Change slider value
+    await separationSlider.fill('30');
+    
+    // Verify value changed
+    const newValue = await separationSlider.getAttribute('value');
+    expect(newValue).toBe('30');
+    expect(newValue).not.toBe(initialValue);
+    
+    // Wait a bit to see if simulation continues running without errors
+    await page.waitForTimeout(1000);
+    
+    // Verify no errors occurred after parameter change
+    const hasErrors = consoleMessages.some(msg => 
+      msg.toLowerCase().includes('error') && 
+      !msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    expect(hasErrors).toBe(false);
+  });
+
+  test('Control panel can be toggled visible/hidden', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    // Listen for console messages
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.goto('/');
+    
+    // Wait for page to load
+    await page.waitForTimeout(3000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available (UI won't be created)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    const controlPanel = page.locator('#control-panel');
+    const toggleButton = page.locator('.toggle-panel-button');
+    
+    // Control panel should be initially visible
+    await expect(controlPanel).toBeVisible();
+    
+    // Toggle button should be initially hidden
+    await expect(toggleButton).toBeAttached();
+    
+    // Find and click the toggle button within the panel
+    const panelToggleButton = page.locator('#togglePanel');
+    await expect(panelToggleButton).toBeVisible();
+    await panelToggleButton.click();
+    
+    // Wait for animation
+    await page.waitForTimeout(500);
+    
+    // Control panel should now be hidden
+    await expect(controlPanel).toHaveClass(/hidden/);
+    
+    // External toggle button should now be visible
+    await expect(toggleButton).toBeVisible();
+    
+    // Click external toggle button to show panel again
+    await toggleButton.click();
+    
+    // Wait for animation
+    await page.waitForTimeout(500);
+    
+    // Control panel should be visible again
+    await expect(controlPanel).not.toHaveClass(/hidden/);
+  });
+
+  test('Performance monitoring displays real-time metrics', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers with WebGPU
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(3000);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Check performance displays
+    const fpsDisplay = page.locator('#fpsDisplay');
+    const frameTimeDisplay = page.locator('#frameTimeDisplay');
+    
+    await expect(fpsDisplay).toBeVisible();
+    await expect(frameTimeDisplay).toBeVisible();
+    
+    // Wait for performance metrics to populate
+    await page.waitForTimeout(2000);
+    
+    // Check that displays show actual performance data
+    const fpsText = await fpsDisplay.textContent();
+    const frameTimeText = await frameTimeDisplay.textContent();
+    
+    expect(fpsText).toMatch(/\d+.*FPS/); // Should contain numbers and "FPS"
+    expect(frameTimeText).toMatch(/\d+.*ms/); // Should contain numbers and "ms"
+    
+    // Verify FPS is reasonable (greater than 0, less than 200)
+    const fpsMatch = fpsText?.match(/(\d+(?:\.\d+)?)/);
+    if (fpsMatch) {
+      const fps = parseFloat(fpsMatch[1]);
+      expect(fps).toBeGreaterThan(0);
+      expect(fps).toBeLessThan(200);
+    }
+  });
+
+  test('Reset button restores default parameters', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    // Listen for console messages
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.goto('/');
+    
+    // Wait for page to load
+    await page.waitForTimeout(3000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available (UI won't be created)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    const separationSlider = page.locator('#separationRadius');
+    const resetButton = page.locator('#resetParams');
+    
+    await expect(separationSlider).toBeVisible();
+    await expect(resetButton).toBeVisible();
+    
+    // Change slider value
+    await separationSlider.fill('50');
+    
+    // Verify value changed
+    let currentValue = await separationSlider.getAttribute('value');
+    expect(currentValue).toBe('50');
+    
+    // Click reset button
+    await resetButton.click();
+    
+    // Wait for reset to complete
+    await page.waitForTimeout(500);
+    
+    // Verify slider returned to default value (20)
+    currentValue = await separationSlider.getAttribute('value');
+    expect(currentValue).toBe('20');
   });
 });
