@@ -23,7 +23,7 @@ export function createInitialFPSState(_config: FPSConfig): FPSState {
     frameTimes: [],
     lastUpdateTime: 0,
     currentFPS: 0,
-    isVisible: false,
+    isVisible: true,
   };
 }
 

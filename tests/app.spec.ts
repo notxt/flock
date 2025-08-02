@@ -262,7 +262,7 @@ test.describe('Flock Application', () => {
 });
 
 test.describe('FPS Counter Feature', () => {
-  test('FPS counter element is created but initially hidden', async ({ page }): Promise<void> => {
+  test('FPS counter element is created and visible by default', async ({ page }): Promise<void> => {
     await page.goto('/');
     
     // Listen for console messages to check for WebGPU initialization
@@ -291,8 +291,8 @@ test.describe('FPS Counter Feature', () => {
     const fpsCounter = page.locator('.fps-counter');
     await expect(fpsCounter).toBeAttached();
     
-    // But should be hidden initially
-    await expect(fpsCounter).toBeHidden();
+    // Should be visible by default now
+    await expect(fpsCounter).toBeVisible();
   });
 
   test('pressing F key toggles FPS counter visibility', async ({ page }): Promise<void> => {
