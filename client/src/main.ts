@@ -30,6 +30,7 @@ import type {
   ButtonClickHandler,
   SimulationParams,
   BufferSet,
+  ParameterUpdateResult,
 } from "./module/types.js";
 
 type WebGPUResources = {
@@ -173,15 +174,7 @@ async function main(): Promise<void> {
   const displayConfigs = createDefaultDisplayConfigs();
   
   // Create parameter update handler
-  const sliderChangeHandler: SliderChangeHandler = (parameterId: string, value: number) => {
-    const updates = new Map([[parameterId, value]]);
-    const result = updateSimulationParams(simulationState.bufferSet.params, updates);
-    
-    if (result instanceof Error) {
-      console.error(`Parameter update failed: ${result.message}`);
-      return result;
-    }
-    
+  const sliderChangeHandler: SliderChangeHandler = (parameterId: string, value: number): ParameterUpdateResult => {
     // Handle agent count changes specially
     if (parameterId === "agentCount") {
       const newBufferSetResult = createBufferSetWithNewAgentCount(
@@ -209,6 +202,15 @@ async function main(): Promise<void> {
         success: true,
         updatedParams: simulationState.bufferSet.params,
       };
+    }
+    
+    // Handle regular parameter updates
+    const updates = new Map([[parameterId, value]]);
+    const result = updateSimulationParams(simulationState.bufferSet.params, updates);
+    
+    if (result instanceof Error) {
+      console.error(`Parameter update failed: ${result.message}`);
+      return result;
     }
     
     // Update buffer set parameters for non-agent-count changes
