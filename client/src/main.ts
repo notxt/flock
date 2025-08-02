@@ -7,6 +7,23 @@ type WebGPUResources = {
 };
 import { loadShader, createPipelines } from "./module/shaders.js";
 import { createBufferSet, updateUniforms } from "./module/buffers.js";
+import { 
+  createInitialFPSState, 
+  updateFrameTime, 
+  calculateRollingAverage, 
+  shouldUpdateDisplay, 
+  updateFPSDisplay as updateFPSState,
+  toggleVisibility,
+  type FPSState,
+  type FPSConfig 
+} from "./module/fps.js";
+import { 
+  createFPSDisplay, 
+  updateFPSDisplay, 
+  setFPSDisplayVisibility, 
+  type FPSDisplayElement 
+} from "./module/fps-display.js";
+import { createKeyboardListener, type KeyboardListener } from "./module/keyboard.js";
 
 type PipelineSet = {
   readonly compute: GPUComputePipeline;
@@ -71,6 +88,37 @@ async function main(): Promise<void> {
   console.log("WebGPU initialized successfully!");
   console.log("Device:", webgpuResult.device);
   console.log("Format:", webgpuResult.format);
+  
+  // Initialize FPS counter
+  const fpsConfig: FPSConfig = {
+    bufferSize: 60,
+    updateInterval: 1000,
+  };
+  
+  let fpsState: FPSState = createInitialFPSState(fpsConfig);
+  
+  const fpsDisplayResult = createFPSDisplay();
+  if (fpsDisplayResult instanceof Error) {
+    console.error("Failed to create FPS display:", fpsDisplayResult.message);
+    return;
+  }
+  
+  const fpsDisplay: FPSDisplayElement = fpsDisplayResult;
+  
+  // Set up keyboard listener for 'F' key to toggle FPS display
+  const keyboardListenerResult = createKeyboardListener('f', () => {
+    fpsState = toggleVisibility(fpsState);
+    setFPSDisplayVisibility(fpsDisplay, fpsState.isVisible);
+  });
+  
+  if (keyboardListenerResult instanceof Error) {
+    console.error("Failed to create keyboard listener:", keyboardListenerResult.message);
+    return;
+  }
+  
+  const keyboardListener: KeyboardListener = keyboardListenerResult;
+  // Note: keyboardListener is maintained for potential cleanup in future iterations
+  void keyboardListener; // Suppress unused variable warning
   
   // Load shaders
   console.log("Loading shaders...");
@@ -226,6 +274,18 @@ async function main(): Promise<void> {
     const resources = webgpuResult as WebGPUResources;
     
     function frame(currentTime: number): void {
+      // Update FPS tracking
+      fpsState = updateFrameTime(fpsState, currentTime);
+      
+      // Update FPS display if enough time has passed
+      if (shouldUpdateDisplay(fpsState, currentTime, fpsConfig)) {
+        const newFPS = calculateRollingAverage(fpsState.frameTimes);
+        fpsState = updateFPSState(fpsState, currentTime, newFPS);
+        if (fpsState.isVisible) {
+          updateFPSDisplay(fpsDisplay, fpsState.currentFPS);
+        }
+      }
+      
       const deltaTimeMs = currentTime - lastTime;
       lastTime = currentTime;
       
