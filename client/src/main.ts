@@ -168,13 +168,13 @@ async function main(): Promise<void> {
   
   // Create simulation parameters (after canvas is resized)
   const simulationParamsInput = {
-    agentCount: 200_000,
+    agentCount: 10_000,
     separationRadius: 20.0,    // Closer separation for tighter flocks
     alignmentRadius: 40.0,     // Medium range for alignment
     cohesionRadius: 40.0,      // Medium range for cohesion
-    separationForce: 2.0,
-    alignmentForce: 1.5,
-    cohesionForce: 1.2,
+    separationForce: 3.0,
+    alignmentForce: 5,
+    cohesionForce: 3.0,
     maxSpeed: 2.0,
     worldSize: [canvas.width, canvas.height] as const,
     neighborRadius: 50.0,
