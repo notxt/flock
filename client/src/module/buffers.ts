@@ -17,6 +17,8 @@ type SimulationParams = {
   readonly edgeAvoidanceForce: number;
   readonly momentumSmoothing: number;
   readonly momentumDamping: number;
+  readonly collisionRadius: number;
+  readonly collisionForceMultiplier: number;
 };
 
 type BufferSet = {
@@ -35,7 +37,7 @@ type GridConfig = {
 };
 
 const AGENT_SIZE_BYTES = 32; // 8 floats: x, y, vx, vy, prevAccelX, prevAccelY, padX, padY
-const UNIFORM_SIZE_BYTES = 88; // SimParams struct size with deltaTime, neighborRadius, grid parameters, edge avoidance, and momentum parameters
+const UNIFORM_SIZE_BYTES = 96; // SimParams struct size with deltaTime, neighborRadius, grid parameters, edge avoidance, momentum parameters, and collision parameters
 const MAX_AGENTS_PER_CELL = 32;
 const EMPTY_CELL_MARKER = 0xFFFFFFFF;
 
@@ -158,9 +160,11 @@ export function updateUniforms(device: GPUDevice, buffer: GPUBuffer, params: Sim
   view.setFloat32(68, params.edgeAvoidanceForce, true);
   view.setFloat32(72, params.momentumSmoothing, true);
   view.setFloat32(76, params.momentumDamping, true);
+  view.setFloat32(80, params.collisionRadius, true);
+  view.setFloat32(84, params.collisionForceMultiplier, true);
   // Padding to align to 16 bytes
-  view.setFloat32(80, 0, true);
-  view.setFloat32(84, 0, true);
+  view.setFloat32(88, 0, true);
+  view.setFloat32(92, 0, true);
   
   device.queue.writeBuffer(buffer, 0, uniformData);
 }

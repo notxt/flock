@@ -182,6 +182,8 @@ async function main(): Promise<void> {
     edgeAvoidanceForce: 2.0,
     momentumSmoothing: 0.15,   // Smooth acceleration changes for natural movement
     momentumDamping: 0.08,     // Reduce oscillations for stable flocking
+    collisionRadius: 6.0,      // Smaller radius for collision detection (6px)
+    collisionForceMultiplier: 3.0,  // Emergency force multiplier (3x stronger)
   };
   
   // Create all buffers using the buffer module

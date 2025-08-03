@@ -8,6 +8,7 @@ struct Agent {
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) velocity: vec2<f32>,
+  @location(1) collisionFlag: f32,
 }
 
 struct Uniforms {
@@ -43,6 +44,7 @@ fn main(@builtin(instance_index) instanceIdx: u32, @builtin(vertex_index) vertex
   var output: VertexOutput;
   output.position = vec4<f32>(ndcX, ndcY, 0.0, 1.0);
   output.velocity = agent.velocity;
+  output.collisionFlag = agent.padding.x;
   
   return output;
 }

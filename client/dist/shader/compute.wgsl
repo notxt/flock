@@ -25,6 +25,8 @@ struct SimParams {
   edgeAvoidanceForce: f32,
   momentumSmoothing: f32,
   momentumDamping: f32,
+  collisionRadius: f32,
+  collisionForceMultiplier: f32,
 }
 
 @group(0) @binding(0) var<storage, read> agentsIn: array<Agent>;
@@ -68,6 +70,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   var separationCount: u32 = 0u;
   var alignmentCount: u32 = 0u;
   var cohesionCount: u32 = 0u;
+  var isColliding = false;
   
   // Get current agent's grid cell
   let agentGridPos = worldToGrid(agent.position);
@@ -102,8 +105,17 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let diff = agent.position - other.position;
         let distSq = dot(diff, diff);
         
-        // Separation - closest interactions, avoid crowding
-        if (distSq < params.separationRadius * params.separationRadius && distSq > 0.0) {
+        // Collision detection - smaller radius than separation for emergency response
+        if (distSq < params.collisionRadius * params.collisionRadius && distSq > 0.0) {
+          let dist = sqrt(distSq);
+          // Apply emergency separation force (2-3x stronger than normal)
+          let emergencyForce = (diff / dist) * params.collisionForceMultiplier;
+          separation = separation + emergencyForce;
+          separationCount = separationCount + 1u;
+          isColliding = true;
+        }
+        // Separation - closest interactions, avoid crowding (only if not colliding)
+        else if (distSq < params.separationRadius * params.separationRadius && distSq > 0.0) {
           let dist = sqrt(distSq);
           separation = separation + (diff / dist);
           separationCount = separationCount + 1u;
@@ -211,5 +223,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   agentsOut[idx].position = position;
   agentsOut[idx].velocity = velocity;
   agentsOut[idx].previousAcceleration = dampedAcceleration;
-  agentsOut[idx].padding = vec2<f32>(0.0, 0.0);
+  // Store collision flag in padding.x (1.0 if colliding, 0.0 if not)
+  agentsOut[idx].padding = vec2<f32>(select(0.0, 1.0, isColliding), 0.0);
 }

@@ -25,6 +25,8 @@ struct SimParams {
   edgeAvoidanceForce: f32,
   momentumSmoothing: f32,
   momentumDamping: f32,
+  collisionRadius: f32,
+  collisionForceMultiplier: f32,
 }
 
 @group(0) @binding(0) var<storage, read> agents: array<Agent>;
