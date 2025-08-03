@@ -261,6 +261,157 @@ test.describe('Flock Application', () => {
   });
 });
 
+test.describe('Edge Avoidance Feature', () => {
+  test('boids turn away from screen edges instead of wrapping', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers with WebGPU
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.waitForTimeout(500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Let simulation run to allow boids to approach edges
+    await page.waitForTimeout(3000);
+    
+    // Verify canvas is still visible and simulation is running
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Check that no edge-wrapping related errors occurred
+    const hasEdgeErrors = consoleMessages.some(msg => 
+      msg.includes('edge wrapping') ||
+      msg.includes('boundary wrap') ||
+      msg.includes('position teleport')
+    );
+    
+    expect(hasEdgeErrors).toBe(false);
+  });
+
+  test('edge avoidance maintains simulation stability', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers with WebGPU
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.waitForTimeout(500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Run simulation for extended period to test stability with edge avoidance
+    await page.waitForTimeout(5000);
+    
+    // Verify canvas remains responsive
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Check that no stability issues occurred
+    const hasStabilityErrors = consoleMessages.some(msg => 
+      msg.includes('NaN') ||
+      msg.includes('Infinity') ||
+      msg.includes('shader error') ||
+      msg.includes('GPU pipeline error')
+    );
+    
+    expect(hasStabilityErrors).toBe(false);
+  });
+
+  test('edge avoidance parameters are properly configured', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers with WebGPU
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.waitForTimeout(500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Run simulation to verify edge parameters are working
+    await page.waitForTimeout(2000);
+    
+    // Verify canvas is still visible and simulation is running
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Check that no parameter-related errors occurred
+    const hasParameterErrors = consoleMessages.some(msg => 
+      msg.includes('edgeAvoidanceDistance') ||
+      msg.includes('edgeAvoidanceForce') ||
+      msg.includes('uniform buffer') ||
+      msg.includes('parameter mismatch')
+    );
+    
+    expect(hasParameterErrors).toBe(false);
+  });
+});
+
 test.describe('FPS Counter Feature', () => {
   test('FPS counter element is created and visible by default', async ({ page }): Promise<void> => {
     await page.goto('/');

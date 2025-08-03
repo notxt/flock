@@ -19,6 +19,8 @@ struct SimParams {
   gridWidth: u32,
   gridHeight: u32,
   maxAgentsPerCell: u32,
+  edgeAvoidanceDistance: f32,
+  edgeAvoidanceForce: f32,
 }
 
 @group(0) @binding(0) var<storage, read> agents: array<Agent>;
