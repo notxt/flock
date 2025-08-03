@@ -27,6 +27,7 @@ struct SimParams {
   momentumDamping: f32,
   collisionRadius: f32,
   collisionForceMultiplier: f32,
+  collisionScaling: f32,
 }
 
 @group(0) @binding(0) var<storage, read> agentsIn: array<Agent>;
@@ -105,20 +106,23 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let diff = agent.position - other.position;
         let distSq = dot(diff, diff);
         
-        // Collision detection - smaller radius than separation for emergency response
-        if (distSq < params.collisionRadius * params.collisionRadius && distSq > 0.0) {
+        // Unified distance-based separation with scaling
+        if (distSq < params.separationRadius * params.separationRadius && distSq > 0.0) {
           let dist = sqrt(distSq);
-          // Apply emergency separation force (2-3x stronger than normal)
-          let emergencyForce = (diff / dist) * params.collisionForceMultiplier;
-          separation = separation + emergencyForce;
+          
+          // Calculate distance-based force scaling: closer = stronger force
+          // forceScale = max(1.0, (collisionRadius / distance)^collisionScaling)
+          let forceScale = max(1.0, pow(params.collisionRadius / dist, params.collisionScaling));
+          
+          // Apply scaled separation force
+          let scaledForce = (diff / dist) * forceScale;
+          separation = separation + scaledForce;
           separationCount = separationCount + 1u;
-          isColliding = true;
-        }
-        // Separation - closest interactions, avoid crowding (only if not colliding)
-        else if (distSq < params.separationRadius * params.separationRadius && distSq > 0.0) {
-          let dist = sqrt(distSq);
-          separation = separation + (diff / dist);
-          separationCount = separationCount + 1u;
+          
+          // Flag as colliding only when occupying same space (distance ≈ 0)
+          if (dist < 1.0) {
+            isColliding = true;
+          }
         }
         
         // Alignment - medium range, match neighbor velocities
@@ -139,9 +143,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   // Calculate acceleration from forces
   var acceleration = vec2<f32>(0.0, 0.0);
   
-  // Separation: avoid crowding
+  // Separation: avoid crowding with gentle density-based scaling
   if (separationCount > 0u) {
-    separation = normalize(separation / f32(separationCount)) * params.separationForce;
+    // Scale force based on local density: more neighbors = slightly stronger force
+    let densityScale = 1.0 + (f32(separationCount) - 1.0) * 0.05;
+    separation = normalize(separation) * params.separationForce * densityScale;
     acceleration = acceleration + separation;
   }
   

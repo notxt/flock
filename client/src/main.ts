@@ -168,13 +168,13 @@ async function main(): Promise<void> {
   
   // Create simulation parameters (after canvas is resized)
   const simulationParamsInput = {
-    agentCount: 1_000_000,
+    agentCount: 200_000,
     separationRadius: 20.0,    // Closer separation for tighter flocks
     alignmentRadius: 40.0,     // Medium range for alignment
     cohesionRadius: 40.0,      // Medium range for cohesion
-    separationForce: 1.5,
-    alignmentForce: 1.0,
-    cohesionForce: 1.0,
+    separationForce: 2.0,
+    alignmentForce: 1.5,
+    cohesionForce: 1.2,
     maxSpeed: 2.0,
     worldSize: [canvas.width, canvas.height] as const,
     neighborRadius: 50.0,
@@ -182,8 +182,9 @@ async function main(): Promise<void> {
     edgeAvoidanceForce: 2.0,
     momentumSmoothing: 0.15,   // Smooth acceleration changes for natural movement
     momentumDamping: 0.08,     // Reduce oscillations for stable flocking
-    collisionRadius: 6.0,      // Smaller radius for collision detection (6px)
-    collisionForceMultiplier: 3.0,  // Emergency force multiplier (3x stronger)
+    collisionRadius: 12.0,     // Distance-based scaling threshold (12px)
+    collisionForceMultiplier: 5.0,  // Legacy parameter (now superseded by distance-based scaling)
+    collisionScaling: 2.0,     // Distance-based force scaling exponent (2.0 = balanced curve)
   };
   
   // Create all buffers using the buffer module
