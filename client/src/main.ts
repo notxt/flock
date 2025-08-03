@@ -168,7 +168,7 @@ async function main(): Promise<void> {
   
   // Create simulation parameters (after canvas is resized)
   const simulationParamsInput = {
-    agentCount: 1_000,
+    agentCount: 10_000,
     separationRadius: 20.0,    // Closer separation for tighter flocks
     alignmentRadius: 40.0,     // Medium range for alignment
     cohesionRadius: 40.0,      // Medium range for cohesion
