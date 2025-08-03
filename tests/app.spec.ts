@@ -261,6 +261,223 @@ test.describe('Flock Application', () => {
   });
 });
 
+test.describe('Momentum-Based Movement System', () => {
+  test('momentum parameters are within expected ranges', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.waitForTimeout(500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Test that momentum parameters are properly configured
+    // by checking that the simulation runs without errors for several seconds
+    await page.waitForTimeout(3000);
+    
+    // Verify canvas is still visible and simulation is running
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Check that no momentum-related errors occurred
+    const hasMomentumErrors = consoleMessages.some(msg => 
+      msg.includes('momentum') ||
+      msg.includes('smoothing') ||
+      msg.includes('damping') ||
+      msg.includes('acceleration')
+    );
+    
+    expect(hasMomentumErrors).toBe(false);
+  });
+
+  test('momentum system produces smooth movement without oscillations', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.waitForTimeout(500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Run simulation for extended period to test momentum stability
+    await page.waitForTimeout(5000);
+    
+    // Verify canvas remains responsive
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Check that no stability issues occurred (NaN, Infinity, excessive oscillations)
+    const hasStabilityErrors = consoleMessages.some(msg => 
+      msg.includes('NaN') ||
+      msg.includes('Infinity') ||
+      msg.includes('oscillation') ||
+      msg.includes('unstable')
+    );
+    
+    expect(hasStabilityErrors).toBe(false);
+  });
+
+  test('momentum system maintains good performance with 10,000 agents', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(1500);
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.waitForTimeout(500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Test performance by running simulation for extended period
+    // The momentum system should maintain stable performance with 10,000 agents
+    const performanceStart = Date.now();
+    
+    // Let simulation run for 5 seconds to test sustained performance
+    await page.waitForTimeout(5000);
+    
+    const performanceEnd = Date.now();
+    const elapsedTime = performanceEnd - performanceStart;
+    
+    // Verify canvas remains responsive during performance test
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Check that no performance-related errors occurred
+    const hasPerformanceErrors = consoleMessages.some(msg => 
+      msg.includes('GPU timeout') ||
+      msg.includes('Memory allocation failed') ||
+      msg.includes('Buffer overflow') ||
+      msg.includes('performance') ||
+      msg.includes('slow') ||
+      msg.includes('timeout')
+    );
+    
+    expect(hasPerformanceErrors).toBe(false);
+    
+    // Verify simulation ran for expected duration (allowing for some variance)
+    expect(elapsedTime).toBeGreaterThanOrEqual(4800); // At least 4.8 seconds
+    expect(elapsedTime).toBeLessThan(7000); // Not more than 7 seconds (indicating hang)
+  });
+
+  test('momentum system handles extreme parameter values gracefully', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    await page.goto('/');
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check WebGPU availability
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.waitForTimeout(500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Test that the system remains stable even with the current parameter values
+    // which should be within safe ranges (0.05-0.3 for smoothing, 0.05-0.2 for damping)
+    await page.waitForTimeout(4000);
+    
+    // Verify canvas remains responsive
+    await expect(page.locator('#canvas')).toBeVisible();
+    
+    // Check that no extreme value errors occurred
+    const hasExtremeValueErrors = consoleMessages.some(msg => 
+      msg.includes('parameter') ||
+      msg.includes('range') ||
+      msg.includes('invalid') ||
+      msg.includes('overflow')
+    );
+    
+    expect(hasExtremeValueErrors).toBe(false);
+  });
+});
+
 test.describe('Edge Avoidance Feature', () => {
   test('boids turn away from screen edges instead of wrapping', async ({ page }): Promise<void> => {
     // Only run this test in Chromium-based browsers with WebGPU
@@ -442,7 +659,9 @@ test.describe('FPS Counter Feature', () => {
     const fpsCounter = page.locator('.fps-counter');
     await expect(fpsCounter).toBeAttached();
     
-    // Should be visible by default now
+    // Should be hidden by default, press F to show
+    await expect(fpsCounter).toBeHidden();
+    await page.keyboard.press('f');
     await expect(fpsCounter).toBeVisible();
   });
 

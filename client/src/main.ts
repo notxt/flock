@@ -180,6 +180,8 @@ async function main(): Promise<void> {
     neighborRadius: 50.0,
     edgeAvoidanceDistance: 50.0,
     edgeAvoidanceForce: 2.0,
+    momentumSmoothing: 0.15,   // Smooth acceleration changes for natural movement
+    momentumDamping: 0.08,     // Reduce oscillations for stable flocking
   };
   
   // Create all buffers using the buffer module

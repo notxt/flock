@@ -15,6 +15,8 @@ type SimulationParams = {
   readonly maxAgentsPerCell: number;
   readonly edgeAvoidanceDistance: number;
   readonly edgeAvoidanceForce: number;
+  readonly momentumSmoothing: number;
+  readonly momentumDamping: number;
 };
 
 type BufferSet = {
@@ -32,8 +34,8 @@ type GridConfig = {
   readonly maxAgentsPerCell: number;
 };
 
-const AGENT_SIZE_BYTES = 16; // 4 floats: x, y, vx, vy
-const UNIFORM_SIZE_BYTES = 80; // SimParams struct size with deltaTime, neighborRadius, grid parameters, and edge avoidance
+const AGENT_SIZE_BYTES = 32; // 8 floats: x, y, vx, vy, prevAccelX, prevAccelY, padX, padY
+const UNIFORM_SIZE_BYTES = 88; // SimParams struct size with deltaTime, neighborRadius, grid parameters, edge avoidance, and momentum parameters
 const MAX_AGENTS_PER_CELL = 32;
 const EMPTY_CELL_MARKER = 0xFFFFFFFF;
 
@@ -154,23 +156,29 @@ export function updateUniforms(device: GPUDevice, buffer: GPUBuffer, params: Sim
   view.setUint32(60, params.maxAgentsPerCell, true);
   view.setFloat32(64, params.edgeAvoidanceDistance, true);
   view.setFloat32(68, params.edgeAvoidanceForce, true);
+  view.setFloat32(72, params.momentumSmoothing, true);
+  view.setFloat32(76, params.momentumDamping, true);
   // Padding to align to 16 bytes
-  view.setFloat32(72, 0, true);
-  view.setFloat32(76, 0, true);
+  view.setFloat32(80, 0, true);
+  view.setFloat32(84, 0, true);
   
   device.queue.writeBuffer(buffer, 0, uniformData);
 }
 
 export function initializeAgents(params: SimulationParams): Float32Array {
-  const agentData = new Float32Array(params.agentCount * 4);
+  const agentData = new Float32Array(params.agentCount * 8);
   
   // Initialize agents with random positions and velocities
   for (let i = 0; i < params.agentCount; i++) {
-    const offset = i * 4;
+    const offset = i * 8;
     agentData[offset + 0] = Math.random() * params.worldSize[0];      // x position
     agentData[offset + 1] = Math.random() * params.worldSize[1];      // y position
     agentData[offset + 2] = (Math.random() - 0.5) * params.maxSpeed;  // x velocity
     agentData[offset + 3] = (Math.random() - 0.5) * params.maxSpeed;  // y velocity
+    agentData[offset + 4] = 0.0;                                      // previousAcceleration.x
+    agentData[offset + 5] = 0.0;                                      // previousAcceleration.y
+    agentData[offset + 6] = 0.0;                                      // padding.x
+    agentData[offset + 7] = 0.0;                                      // padding.y
   }
   
   return agentData;

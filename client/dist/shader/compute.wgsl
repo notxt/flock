@@ -1,6 +1,8 @@
 struct Agent {
   position: vec2<f32>,
   velocity: vec2<f32>,
+  previousAcceleration: vec2<f32>,
+  padding: vec2<f32>,
 }
 
 struct SimParams {
@@ -21,6 +23,8 @@ struct SimParams {
   maxAgentsPerCell: u32,
   edgeAvoidanceDistance: f32,
   edgeAvoidanceForce: f32,
+  momentumSmoothing: f32,
+  momentumDamping: f32,
 }
 
 @group(0) @binding(0) var<storage, read> agentsIn: array<Agent>;
@@ -176,13 +180,24 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   // Apply edge force to acceleration
   acceleration = acceleration + edgeForce;
   
-  // Update velocity with acceleration over time
-  var velocity = agent.velocity + acceleration * params.deltaTime;
+  // Momentum-based physics: smooth acceleration changes for more natural movement
+  let smoothedAcceleration = mix(agent.previousAcceleration, acceleration, params.momentumSmoothing);
   
-  // Limit speed
+  // Apply damping to reduce oscillations and create smoother movement
+  let dampedAcceleration = smoothedAcceleration * (1.0 - params.momentumDamping);
+  
+  // Update velocity with smoothed and damped acceleration
+  var velocity = agent.velocity + dampedAcceleration * params.deltaTime;
+  
+  // Soft speed limiting: gradually reduce velocity as it approaches max speed
   let speed = length(velocity);
-  if (speed > params.maxSpeed) {
-    velocity = normalize(velocity) * params.maxSpeed;
+  if (speed > 0.0) {
+    let speedRatio = speed / params.maxSpeed;
+    if (speedRatio > 1.0) {
+      // Apply exponential decay for smoother speed limiting
+      let dampingFactor = exp(-speedRatio + 1.0);
+      velocity = velocity * dampingFactor;
+    }
   }
   
   // Update position with deltaTime
@@ -195,4 +210,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   // Write output
   agentsOut[idx].position = position;
   agentsOut[idx].velocity = velocity;
+  agentsOut[idx].previousAcceleration = dampedAcceleration;
+  agentsOut[idx].padding = vec2<f32>(0.0, 0.0);
 }
