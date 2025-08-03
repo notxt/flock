@@ -1,6 +1,8 @@
 struct Agent {
   position: vec2<f32>,
   velocity: vec2<f32>,
+  previousAcceleration: vec2<f32>,
+  padding: vec2<f32>,
 }
 
 struct SimParams {
@@ -21,6 +23,8 @@ struct SimParams {
   maxAgentsPerCell: u32,
   edgeAvoidanceDistance: f32,
   edgeAvoidanceForce: f32,
+  momentumSmoothing: f32,
+  momentumDamping: f32,
 }
 
 @group(0) @binding(0) var<storage, read> agents: array<Agent>;
