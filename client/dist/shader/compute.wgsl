@@ -19,6 +19,8 @@ struct SimParams {
   gridWidth: u32,
   gridHeight: u32,
   maxAgentsPerCell: u32,
+  edgeAvoidanceDistance: f32,
+  edgeAvoidanceForce: f32,
 }
 
 @group(0) @binding(0) var<storage, read> agentsIn: array<Agent>;
@@ -140,6 +142,40 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     acceleration = acceleration + cohesion;
   }
   
+  // Calculate edge avoidance force
+  var edgeForce = vec2<f32>(0.0, 0.0);
+  
+  // Left edge
+  if (agent.position.x < params.edgeAvoidanceDistance) {
+    let distance = agent.position.x;
+    let force = (params.edgeAvoidanceDistance - distance) / params.edgeAvoidanceDistance;
+    edgeForce.x = edgeForce.x + force * params.edgeAvoidanceForce;
+  }
+  
+  // Right edge
+  if (agent.position.x > params.worldSize.x - params.edgeAvoidanceDistance) {
+    let distance = params.worldSize.x - agent.position.x;
+    let force = (params.edgeAvoidanceDistance - distance) / params.edgeAvoidanceDistance;
+    edgeForce.x = edgeForce.x - force * params.edgeAvoidanceForce;
+  }
+  
+  // Top edge
+  if (agent.position.y < params.edgeAvoidanceDistance) {
+    let distance = agent.position.y;
+    let force = (params.edgeAvoidanceDistance - distance) / params.edgeAvoidanceDistance;
+    edgeForce.y = edgeForce.y + force * params.edgeAvoidanceForce;
+  }
+  
+  // Bottom edge
+  if (agent.position.y > params.worldSize.y - params.edgeAvoidanceDistance) {
+    let distance = params.worldSize.y - agent.position.y;
+    let force = (params.edgeAvoidanceDistance - distance) / params.edgeAvoidanceDistance;
+    edgeForce.y = edgeForce.y - force * params.edgeAvoidanceForce;
+  }
+  
+  // Apply edge force to acceleration
+  acceleration = acceleration + edgeForce;
+  
   // Update velocity with acceleration over time
   var velocity = agent.velocity + acceleration * params.deltaTime;
   
@@ -152,18 +188,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   // Update position with deltaTime
   var position = agent.position + velocity * params.deltaTime;
   
-  // Wrap around boundaries
-  if (position.x < 0.0) {
-    position.x = position.x + params.worldSize.x;
-  } else if (position.x > params.worldSize.x) {
-    position.x = position.x - params.worldSize.x;
-  }
-  
-  if (position.y < 0.0) {
-    position.y = position.y + params.worldSize.y;
-  } else if (position.y > params.worldSize.y) {
-    position.y = position.y - params.worldSize.y;
-  }
+  // Clamp position to stay within boundaries as safety net
+  position.x = clamp(position.x, 0.0, params.worldSize.x);
+  position.y = clamp(position.y, 0.0, params.worldSize.y);
   
   // Write output
   agentsOut[idx].position = position;

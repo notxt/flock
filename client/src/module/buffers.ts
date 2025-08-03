@@ -13,6 +13,8 @@ type SimulationParams = {
   readonly gridWidth: number;
   readonly gridHeight: number;
   readonly maxAgentsPerCell: number;
+  readonly edgeAvoidanceDistance: number;
+  readonly edgeAvoidanceForce: number;
 };
 
 type BufferSet = {
@@ -31,7 +33,7 @@ type GridConfig = {
 };
 
 const AGENT_SIZE_BYTES = 16; // 4 floats: x, y, vx, vy
-const UNIFORM_SIZE_BYTES = 72; // SimParams struct size with deltaTime, neighborRadius, and grid parameters
+const UNIFORM_SIZE_BYTES = 80; // SimParams struct size with deltaTime, neighborRadius, grid parameters, and edge avoidance
 const MAX_AGENTS_PER_CELL = 32;
 const EMPTY_CELL_MARKER = 0xFFFFFFFF;
 
@@ -150,9 +152,11 @@ export function updateUniforms(device: GPUDevice, buffer: GPUBuffer, params: Sim
   view.setUint32(52, params.gridWidth, true);
   view.setUint32(56, params.gridHeight, true);
   view.setUint32(60, params.maxAgentsPerCell, true);
+  view.setFloat32(64, params.edgeAvoidanceDistance, true);
+  view.setFloat32(68, params.edgeAvoidanceForce, true);
   // Padding to align to 16 bytes
-  view.setFloat32(64, 0, true);
-  view.setFloat32(68, 0, true);
+  view.setFloat32(72, 0, true);
+  view.setFloat32(76, 0, true);
   
   device.queue.writeBuffer(buffer, 0, uniformData);
 }
