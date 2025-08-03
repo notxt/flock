@@ -7,8 +7,8 @@ struct FragmentInput {
 fn main(input: FragmentInput) -> @location(0) vec4<f32> {
   // Check if the boid is colliding (emergency state)
   if (input.collisionFlag > 0.5) {
-    // Bright red color for colliding boids
-    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    // Bright magenta color for colliding boids
+    return vec4<f32>(1.0, 0.0, 1.0, 1.0);
   }
   
   // Calculate speed from velocity for non-colliding boids
