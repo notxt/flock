@@ -260,3 +260,315 @@ test.describe('Flock Application', () => {
     expect(elapsedTime).toBeLessThan(5000); // Not more than 5 seconds (indicating hang)
   });
 });
+
+test.describe('FPS Counter Feature', () => {
+  test('FPS counter element is created and visible by default', async ({ page }): Promise<void> => {
+    await page.goto('/');
+    
+    // Listen for console messages to check for WebGPU initialization
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip test if WebGPU is not available (headless mode)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    // Check that the FPS counter element exists in DOM
+    const fpsCounter = page.locator('.fps-counter');
+    await expect(fpsCounter).toBeAttached();
+    
+    // Should be visible by default now
+    await expect(fpsCounter).toBeVisible();
+  });
+
+  test('pressing F key toggles FPS counter visibility', async ({ page }): Promise<void> => {
+    await page.goto('/');
+    
+    // Listen for console messages to check for WebGPU initialization
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip test if WebGPU is not available (headless mode)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    const fpsCounter = page.locator('.fps-counter');
+    
+    // Initially hidden
+    await expect(fpsCounter).toBeHidden();
+    
+    // Press 'F' key to show FPS counter
+    await page.keyboard.press('f');
+    await expect(fpsCounter).toBeVisible();
+    
+    // Press 'F' key again to hide FPS counter
+    await page.keyboard.press('f');
+    await expect(fpsCounter).toBeHidden();
+  });
+
+  test('FPS counter displays proper format when visible', async ({ page }): Promise<void> => {
+    await page.goto('/');
+    
+    // Listen for console messages to check for WebGPU initialization
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip test if WebGPU is not available (headless mode)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    const fpsCounter = page.locator('.fps-counter');
+    
+    // Show FPS counter
+    await page.keyboard.press('f');
+    await expect(fpsCounter).toBeVisible();
+    
+    // Check initial text content format
+    await expect(fpsCounter).toHaveText(/^FPS: \d+$/);
+  });
+
+  test('FPS counter updates over time when visible', async ({ page }): Promise<void> => {
+    // Only run this test in Chromium-based browsers
+    const browserName = page.context().browser()?.browserType().name();
+    if (browserName !== 'chromium') {
+      test.skip();
+      return;
+    }
+    
+    // Listen for console messages to check for WebGPU initialization
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    await page.goto('/');
+    
+    // Wait for WebGPU initialization and check availability
+    await page.waitForTimeout(1500);
+    
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip if WebGPU not available
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    const fpsCounter = page.locator('.fps-counter');
+    
+    // Show FPS counter
+    await page.keyboard.press('f');
+    await expect(fpsCounter).toBeVisible();
+    
+    // Get initial FPS reading
+    const initialText = await fpsCounter.textContent();
+    
+    // Wait for at least 1.5 seconds (longer than update interval)
+    await page.waitForTimeout(1500);
+    
+    // Get updated FPS reading
+    const updatedText = await fpsCounter.textContent();
+    
+    // Verify format is maintained
+    expect(initialText).toMatch(/^FPS: \d+$/);
+    expect(updatedText).toMatch(/^FPS: \d+$/);
+    
+    // Extract FPS values
+    const initialFPS = parseInt(initialText?.replace('FPS: ', '') || '0');
+    const updatedFPS = parseInt(updatedText?.replace('FPS: ', '') || '0');
+    
+    // FPS should be greater than 0 when running
+    expect(updatedFPS).toBeGreaterThan(0);
+    
+    // FPS should be reasonable (between 1 and 120)
+    expect(updatedFPS).toBeGreaterThanOrEqual(1);
+    expect(updatedFPS).toBeLessThanOrEqual(120);
+  });
+
+  test('FPS counter has correct CSS styling', async ({ page }): Promise<void> => {
+    await page.goto('/');
+    
+    // Listen for console messages to check for WebGPU initialization
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip test if WebGPU is not available (headless mode)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    const fpsCounter = page.locator('.fps-counter');
+    
+    // Show FPS counter
+    await page.keyboard.press('f');
+    await expect(fpsCounter).toBeVisible();
+    
+    // Check CSS properties
+    const styles = await fpsCounter.evaluate((el) => {
+      const computed = window.getComputedStyle(el);
+      return {
+        position: computed.position,
+        top: computed.top,
+        left: computed.left,
+        fontFamily: computed.fontFamily,
+        fontSize: computed.fontSize,
+        color: computed.color,
+        backgroundColor: computed.backgroundColor,
+        padding: computed.padding,
+        borderRadius: computed.borderRadius,
+        pointerEvents: computed.pointerEvents,
+        zIndex: computed.zIndex,
+        userSelect: computed.userSelect,
+      };
+    });
+    
+    expect(styles.position).toBe('fixed');
+    expect(styles.top).toBe('10px');
+    expect(styles.left).toBe('10px');
+    expect(styles.fontFamily).toContain('monospace');
+    expect(styles.fontSize).toBe('14px');
+    expect(styles.color).toBe('rgb(0, 255, 0)'); // #00ff00
+    expect(styles.padding).toBe('5px 10px');
+    expect(styles.borderRadius).toBe('3px');
+    expect(styles.pointerEvents).toBe('none');
+    expect(styles.zIndex).toBe('1000');
+    expect(styles.userSelect).toBe('none');
+  });
+
+  test('FPS counter works with case insensitive F key', async ({ page }): Promise<void> => {
+    await page.goto('/');
+    
+    // Listen for console messages to check for WebGPU initialization
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip test if WebGPU is not available (headless mode)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    const fpsCounter = page.locator('.fps-counter');
+    
+    // Initially hidden
+    await expect(fpsCounter).toBeHidden();
+    
+    // Press 'F' key (uppercase) to show FPS counter
+    await page.keyboard.press('F');
+    await expect(fpsCounter).toBeVisible();
+    
+    // Press 'f' key (lowercase) to hide FPS counter
+    await page.keyboard.press('f');
+    await expect(fpsCounter).toBeHidden();
+  });
+
+  test('FPS counter does not interfere with canvas interaction', async ({ page }): Promise<void> => {
+    await page.goto('/');
+    
+    // Listen for console messages to check for WebGPU initialization
+    const consoleMessages: string[] = [];
+    page.on('console', msg => consoleMessages.push(msg.text()));
+    
+    // Wait for initialization
+    await page.waitForTimeout(1000);
+    
+    // Check if WebGPU initialized successfully
+    const hasWebGPUSuccess = consoleMessages.some(msg => 
+      msg.includes('WebGPU initialized successfully!')
+    );
+    
+    const hasNoAdapterError = consoleMessages.some(msg =>
+      msg.includes('No appropriate GPUAdapter found')
+    );
+    
+    // Skip test if WebGPU is not available (headless mode)
+    if (hasNoAdapterError && !hasWebGPUSuccess) {
+      test.skip();
+      return;
+    }
+    
+    const canvas = page.locator('#canvas');
+    const fpsCounter = page.locator('.fps-counter');
+    
+    // Show FPS counter
+    await page.keyboard.press('f');
+    await expect(fpsCounter).toBeVisible();
+    
+    // Verify canvas is still clickable (pointer-events: none on FPS counter)
+    await canvas.click();
+    
+    // Canvas should remain visible and responsive
+    await expect(canvas).toBeVisible();
+  });
+});

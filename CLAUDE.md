@@ -84,3 +84,7 @@
 - Group related functions in files
 - Clear, descriptive function names
 - Minimal dependencies between modules
+
+## Workspace Guidelines
+
+- Keep the workspace clean
