@@ -25,6 +25,10 @@ struct SimParams {
   edgeAvoidanceForce: f32,
   momentumSmoothing: f32,
   momentumDamping: f32,
+  collisionRadius: f32,
+  collisionForceMultiplier: f32,
+  collisionScaling: f32,
+  maxNeighbors: u32,
 }
 
 @group(0) @binding(0) var<storage, read> agentsIn: array<Agent>;
@@ -54,7 +58,7 @@ fn gridToIndex(gridPos: vec2<u32>) -> u32 {
   return gridPos.y * params.gridWidth + gridPos.x;
 }
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let idx = global_id.x;
   if (idx >= params.agentCount) {
@@ -68,13 +72,21 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   var separationCount: u32 = 0u;
   var alignmentCount: u32 = 0u;
   var cohesionCount: u32 = 0u;
+  var neighborsProcessed: u32 = 0u;
+  var isColliding = false;
   
   // Get current agent's grid cell
   let agentGridPos = worldToGrid(agent.position);
   
   // Check 3x3 neighborhood around current cell
   for (var dy: i32 = -1; dy <= 1; dy = dy + 1) {
+    if (neighborsProcessed >= params.maxNeighbors) {
+      break;
+    }
     for (var dx: i32 = -1; dx <= 1; dx = dx + 1) {
+      if (neighborsProcessed >= params.maxNeighbors) {
+        break;
+      }
       let neighborX = i32(agentGridPos.x) + dx;
       let neighborY = i32(agentGridPos.y) + dy;
       
@@ -90,6 +102,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
       
       // Check all agents in this neighbor cell
       for (var i: u32 = 0u; i < min(neighborCount, params.maxAgentsPerCell); i = i + 1u) {
+        if (neighborsProcessed >= params.maxNeighbors) {
+          break;
+        }
         let neighborGridDataIdx = neighborCellIdx * params.maxAgentsPerCell + i;
         let neighborIdx = gridData[neighborGridDataIdx];
         
@@ -98,15 +113,34 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
           continue;
         }
         
+        // Early termination: stop processing neighbors if we've reached the limit
+        if (neighborsProcessed >= params.maxNeighbors) {
+          break;
+        }
+        
+        neighborsProcessed = neighborsProcessed + 1u;
+        
         let other = agentsIn[neighborIdx];
         let diff = agent.position - other.position;
         let distSq = dot(diff, diff);
         
-        // Separation - closest interactions, avoid crowding
+        // Unified distance-based separation with scaling
         if (distSq < params.separationRadius * params.separationRadius && distSq > 0.0) {
           let dist = sqrt(distSq);
-          separation = separation + (diff / dist);
+          
+          // Calculate distance-based force scaling: closer = stronger force
+          // forceScale = max(1.0, (collisionRadius / distance)^collisionScaling)
+          let forceScale = max(1.0, pow(params.collisionRadius / dist, params.collisionScaling));
+          
+          // Apply scaled separation force
+          let scaledForce = (diff / dist) * forceScale;
+          separation = separation + scaledForce;
           separationCount = separationCount + 1u;
+          
+          // Flag as colliding only when occupying same space (distance ≈ 0)
+          if (dist < 1.0) {
+            isColliding = true;
+          }
         }
         
         // Alignment - medium range, match neighbor velocities
@@ -127,9 +161,11 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   // Calculate acceleration from forces
   var acceleration = vec2<f32>(0.0, 0.0);
   
-  // Separation: avoid crowding
+  // Separation: avoid crowding with gentle density-based scaling
   if (separationCount > 0u) {
-    separation = normalize(separation / f32(separationCount)) * params.separationForce;
+    // Scale force based on local density: more neighbors = slightly stronger force
+    let densityScale = 1.0 + (f32(separationCount) - 1.0) * 0.05;
+    separation = normalize(separation) * params.separationForce * densityScale;
     acceleration = acceleration + separation;
   }
   
@@ -211,5 +247,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   agentsOut[idx].position = position;
   agentsOut[idx].velocity = velocity;
   agentsOut[idx].previousAcceleration = dampedAcceleration;
-  agentsOut[idx].padding = vec2<f32>(0.0, 0.0);
+  // Store collision flag in padding.x (1.0 if colliding, 0.0 if not)
+  agentsOut[idx].padding = vec2<f32>(select(0.0, 1.0, isColliding), 0.0);
 }

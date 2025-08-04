@@ -25,6 +25,9 @@ struct SimParams {
   edgeAvoidanceForce: f32,
   momentumSmoothing: f32,
   momentumDamping: f32,
+  collisionRadius: f32,
+  collisionForceMultiplier: f32,
+  collisionScaling: f32,
 }
 
 @group(0) @binding(0) var<storage, read> agents: array<Agent>;
@@ -53,7 +56,7 @@ fn gridToIndex(gridPos: vec2<u32>) -> u32 {
   return gridPos.y * params.gridWidth + gridPos.x;
 }
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let agentIdx = global_id.x;
   if (agentIdx >= params.agentCount) {

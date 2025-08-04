@@ -28,6 +28,7 @@ import { createKeyboardListener, type KeyboardListener } from "./module/keyboard
 type PipelineSet = {
   readonly compute: GPUComputePipeline;
   readonly gridPopulate: GPUComputePipeline;
+  readonly gridClear: GPUComputePipeline;
   readonly render: GPURenderPipeline;
 };
 
@@ -130,6 +131,7 @@ async function main(): Promise<void> {
     shaderCode = {
       compute: await loadShader("./shader/compute.wgsl"),
       gridPopulate: await loadShader("./shader/grid_populate.wgsl"),
+      gridClear: await loadShader("./shader/grid_clear.wgsl"),
       vertex: await loadShader("./shader/vertex.wgsl"),
       fragment: await loadShader("./shader/fragment.wgsl"),
     };
@@ -168,12 +170,12 @@ async function main(): Promise<void> {
   
   // Create simulation parameters (after canvas is resized)
   const simulationParamsInput = {
-    agentCount: 1_000_000,
-    separationRadius: 20.0,    // Closer separation for tighter flocks
-    alignmentRadius: 40.0,     // Medium range for alignment
-    cohesionRadius: 40.0,      // Medium range for cohesion
-    separationForce: 1.5,
-    alignmentForce: 1.0,
+    agentCount: 100_000,
+    separationRadius: 10.0,    // Closer separation for tighter flocks
+    alignmentRadius: 20.0,     // Medium range for alignment
+    cohesionRadius: 3.0,      // Medium range for cohesion
+    separationForce: 4.0,
+    alignmentForce: 6,
     cohesionForce: 1.0,
     maxSpeed: 2.0,
     worldSize: [canvas.width, canvas.height] as const,
@@ -182,6 +184,10 @@ async function main(): Promise<void> {
     edgeAvoidanceForce: 2.0,
     momentumSmoothing: 0.15,   // Smooth acceleration changes for natural movement
     momentumDamping: 0.08,     // Reduce oscillations for stable flocking
+    collisionRadius: 12.0,     // Distance-based scaling threshold (12px)
+    collisionForceMultiplier: 5.0,  // Legacy parameter (now superseded by distance-based scaling)
+    collisionScaling: 2.0,     // Distance-based force scaling exponent (2.0 = balanced curve)
+    maxNeighbors: 256,          // Limit neighbors processed per boid to prevent exponential computation
   };
   
   // Create all buffers using the buffer module
@@ -253,6 +259,14 @@ async function main(): Promise<void> {
       ],
     }),
   ];
+
+  // Create grid clear bind group (only need one since it doesn't depend on buffer swapping)
+  const gridClearBindGroup = webgpuResult.device.createBindGroup({
+    layout: pipelines.gridClear.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: bufferSet.gridIndicesBuffer } },
+    ],
+  });
   
   // Create render bind groups for both buffers
   const renderBindGroups = [
@@ -305,17 +319,20 @@ async function main(): Promise<void> {
       
       const commandEncoder = resources.device.createCommandEncoder();
       
-      // Clear grid buffers - clear the indices buffer to reset agent counts per cell
+      // GPU-based grid clearing - much faster than CPU clearing
       const cellCount = bufferSet.params.gridWidth * bufferSet.params.gridHeight;
-      const emptyIndices = new Uint32Array(cellCount);
-      emptyIndices.fill(0);
-      resources.device.queue.writeBuffer(bufferSet.gridIndicesBuffer, 0, emptyIndices);
+      const gridClearPass = commandEncoder.beginComputePass();
+      gridClearPass.setPipeline(pipelines.gridClear);
+      gridClearPass.setBindGroup(0, gridClearBindGroup);
+      const clearWorkgroupCount = Math.ceil(cellCount / 32);
+      gridClearPass.dispatchWorkgroups(clearWorkgroupCount);
+      gridClearPass.end();
       
       // Grid populate pass - assign agents to grid cells
       const gridPopulatePass = commandEncoder.beginComputePass();
       gridPopulatePass.setPipeline(pipelines.gridPopulate);
       gridPopulatePass.setBindGroup(0, gridPopulateBindGroups[currentBuffer]);
-      const gridWorkgroupCount = Math.ceil(bufferSet.params.agentCount / 64);
+      const gridWorkgroupCount = Math.ceil(bufferSet.params.agentCount / 32);
       gridPopulatePass.dispatchWorkgroups(gridWorkgroupCount);
       gridPopulatePass.end();
       
@@ -323,7 +340,7 @@ async function main(): Promise<void> {
       const computePass = commandEncoder.beginComputePass();
       computePass.setPipeline(pipelines.compute);
       computePass.setBindGroup(0, computeBindGroups[currentBuffer]);
-      const workgroupCount = Math.ceil(bufferSet.params.agentCount / 64);
+      const workgroupCount = Math.ceil(bufferSet.params.agentCount / 32);
       computePass.dispatchWorkgroups(workgroupCount);
       computePass.end();
       
@@ -346,7 +363,7 @@ async function main(): Promise<void> {
       const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
       renderPass.setPipeline(pipelines.render);
       renderPass.setBindGroup(0, renderBindGroups[currentBuffer]);
-      renderPass.draw(6, bufferSet.params.agentCount); // 6 vertices per quad, one instance per agent
+      renderPass.draw(bufferSet.params.agentCount); // One vertex per agent (point rendering)
       renderPass.end();
       
       resources.device.queue.submit([commandEncoder.finish()]);
