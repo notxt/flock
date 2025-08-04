@@ -20,6 +20,7 @@ type SimulationParams = {
   readonly collisionRadius: number;
   readonly collisionForceMultiplier: number;
   readonly collisionScaling: number;
+  readonly maxNeighbors: number;
 };
 
 type BufferSet = {
@@ -38,12 +39,14 @@ type GridConfig = {
 };
 
 const AGENT_SIZE_BYTES = 32; // 8 floats: x, y, vx, vy, prevAccelX, prevAccelY, padX, padY
-const UNIFORM_SIZE_BYTES = 100; // SimParams struct size with deltaTime, neighborRadius, grid parameters, edge avoidance, momentum parameters, collision parameters, and scaling
+const UNIFORM_SIZE_BYTES = 104; // SimParams struct size with deltaTime, neighborRadius, grid parameters, edge avoidance, momentum parameters, collision parameters, scaling, and maxNeighbors
 const MAX_AGENTS_PER_CELL = 128;
 const EMPTY_CELL_MARKER = 0xFFFFFFFF;
 
 function calculateGridConfig(worldSize: readonly [number, number], neighborRadius: number): GridConfig {
-  const cellSize = neighborRadius;
+  // Use smaller cell size (neighborRadius/2) for better spatial distribution
+  // This increases grid density by 4x, reducing average agents per cell
+  const cellSize = neighborRadius / 2;
   const gridWidth = Math.ceil(worldSize[0] / cellSize);
   const gridHeight = Math.ceil(worldSize[1] / cellSize);
   
@@ -164,9 +167,10 @@ export function updateUniforms(device: GPUDevice, buffer: GPUBuffer, params: Sim
   view.setFloat32(80, params.collisionRadius, true);
   view.setFloat32(84, params.collisionForceMultiplier, true);
   view.setFloat32(88, params.collisionScaling, true);
+  view.setUint32(92, params.maxNeighbors, true);
   // Padding to align to 16 bytes
-  view.setFloat32(92, 0, true);
   view.setFloat32(96, 0, true);
+  view.setFloat32(100, 0, true);
   
   device.queue.writeBuffer(buffer, 0, uniformData);
 }

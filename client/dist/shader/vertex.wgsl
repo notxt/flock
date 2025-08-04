@@ -20,26 +20,12 @@ struct Uniforms {
 @group(0) @binding(1) var<uniform> uniforms: Uniforms;
 
 @vertex
-fn main(@builtin(instance_index) instanceIdx: u32, @builtin(vertex_index) vertexIdx: u32) -> VertexOutput {
-  let agent = agents[instanceIdx];
-  
-  // Create a small quad for each agent
-  let pointSize = 1.0;
-  var vertices = array<vec2<f32>, 6>(
-    vec2<f32>(-pointSize, -pointSize),
-    vec2<f32>( pointSize, -pointSize),
-    vec2<f32>( pointSize,  pointSize),
-    vec2<f32>(-pointSize, -pointSize),
-    vec2<f32>( pointSize,  pointSize),
-    vec2<f32>(-pointSize,  pointSize)
-  );
-  
-  let vertex = vertices[vertexIdx];
-  let worldPos = vec4<f32>(agent.position + vertex, 0.0, 1.0);
+fn main(@builtin(vertex_index) vertexIdx: u32) -> VertexOutput {
+  let agent = agents[vertexIdx];
   
   // Transform to normalized device coordinates
-  let ndcX = (worldPos.x / uniforms.worldSize.x) * 2.0 - 1.0;
-  let ndcY = (worldPos.y / uniforms.worldSize.y) * 2.0 - 1.0;
+  let ndcX = (agent.position.x / uniforms.worldSize.x) * 2.0 - 1.0;
+  let ndcY = (agent.position.y / uniforms.worldSize.y) * 2.0 - 1.0;
   
   var output: VertexOutput;
   output.position = vec4<f32>(ndcX, ndcY, 0.0, 1.0);

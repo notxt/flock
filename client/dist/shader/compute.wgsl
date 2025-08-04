@@ -28,6 +28,7 @@ struct SimParams {
   collisionRadius: f32,
   collisionForceMultiplier: f32,
   collisionScaling: f32,
+  maxNeighbors: u32,
 }
 
 @group(0) @binding(0) var<storage, read> agentsIn: array<Agent>;
@@ -57,7 +58,7 @@ fn gridToIndex(gridPos: vec2<u32>) -> u32 {
   return gridPos.y * params.gridWidth + gridPos.x;
 }
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let idx = global_id.x;
   if (idx >= params.agentCount) {
@@ -71,6 +72,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   var separationCount: u32 = 0u;
   var alignmentCount: u32 = 0u;
   var cohesionCount: u32 = 0u;
+  var neighborsProcessed: u32 = 0u;
   var isColliding = false;
   
   // Get current agent's grid cell
@@ -78,7 +80,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   
   // Check 3x3 neighborhood around current cell
   for (var dy: i32 = -1; dy <= 1; dy = dy + 1) {
+    if (neighborsProcessed >= params.maxNeighbors) {
+      break;
+    }
     for (var dx: i32 = -1; dx <= 1; dx = dx + 1) {
+      if (neighborsProcessed >= params.maxNeighbors) {
+        break;
+      }
       let neighborX = i32(agentGridPos.x) + dx;
       let neighborY = i32(agentGridPos.y) + dy;
       
@@ -94,6 +102,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
       
       // Check all agents in this neighbor cell
       for (var i: u32 = 0u; i < min(neighborCount, params.maxAgentsPerCell); i = i + 1u) {
+        if (neighborsProcessed >= params.maxNeighbors) {
+          break;
+        }
         let neighborGridDataIdx = neighborCellIdx * params.maxAgentsPerCell + i;
         let neighborIdx = gridData[neighborGridDataIdx];
         
@@ -101,6 +112,13 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if (neighborIdx == idx || neighborIdx == EMPTY_CELL_MARKER || neighborIdx >= params.agentCount) {
           continue;
         }
+        
+        // Early termination: stop processing neighbors if we've reached the limit
+        if (neighborsProcessed >= params.maxNeighbors) {
+          break;
+        }
+        
+        neighborsProcessed = neighborsProcessed + 1u;
         
         let other = agentsIn[neighborIdx];
         let diff = agent.position - other.position;

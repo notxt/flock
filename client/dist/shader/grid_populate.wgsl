@@ -56,7 +56,7 @@ fn gridToIndex(gridPos: vec2<u32>) -> u32 {
   return gridPos.y * params.gridWidth + gridPos.x;
 }
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(32)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let agentIdx = global_id.x;
   if (agentIdx >= params.agentCount) {
